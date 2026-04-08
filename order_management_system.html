@@ -442,7 +442,7 @@ tbody tr:hover td{background:#fafbfc}
   <div class="header-logo">
     <svg viewBox="0 0 24 24"><path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2"/><rect x="9" y="3" width="6" height="4" rx="1"/><path d="M9 12h6M9 16h4"/></svg>
   </div>
-  <h1>発注管理システム <span class="header-sub">医療美容製剤</span></h1>
+  <h1>発注管理システム <span class="header-sub" id="header-subtitle">医療美容製剤</span></h1>
   <div class="header-spacer"></div>
   <span id="save-indicator" style="font-size:11px;color:#16a37f;opacity:0;transition:opacity 0.5s;font-weight:500">✓ 保存済み</span>
   <button onclick="exportBackup()" style="padding:5px 12px;font-size:11px;font-weight:500;background:#fff;border:1.5px solid #e0e0e0;border-radius:8px;cursor:pointer;color:#333;font-family:inherit" title="バックアップをダウンロード">⬇ バックアップ</button>
@@ -684,12 +684,36 @@ tbody tr:hover td{background:#fafbfc}
 
 <!-- マスタ管理 -->
 <div id="tab-master" class="screen">
-  <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
-    <button class="btn primary" onclick="openSupplierModal(null)">＋ 仕入れ先を追加</button>
-    <button class="btn" onclick="openProductModal(null,null)">＋ 商品を追加</button>
+  <div class="section-head">
+    <h3>マスタ管理</h3>
     <div style="margin-left:auto">
       <button class="btn" style="border-color:#dc2626;color:#dc2626" onclick="resetSuppliersToDefault()">🔄 仕入れ先マスタを初期値に戻す</button>
     </div>
+  </div>
+
+  <!-- 発注元情報 -->
+  <div style="background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius-lg);padding:18px 20px;margin-bottom:20px">
+    <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#555;margin-bottom:14px">📋 発注元情報（PDF・発注書に表示）</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px">
+      <div class="frow" style="margin:0">
+        <label>会社名</label>
+        <input type="text" id="sender-company" value="${senderInfo?.company||'Pitto Support'}" oninput="updateSenderInfo()" placeholder="例: Pitto Support" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--radius-md);font-size:13px;font-family:inherit;outline:none;background:var(--surface);color:#000">
+      </div>
+      <div class="frow" style="margin:0">
+        <label>サブタイトル</label>
+        <input type="text" id="sender-subtitle" value="${senderInfo?.subtitle||'医療美容製剤'}" oninput="updateSenderInfo()" placeholder="例: 医療美容製剤" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--radius-md);font-size:13px;font-family:inherit;outline:none;background:var(--surface);color:#000">
+      </div>
+      <div class="frow" style="margin:0">
+        <label>発注担当クリニック</label>
+        <input type="text" id="sender-clinic" value="${senderInfo?.clinic||'LaLa Clinic'}" oninput="updateSenderInfo()" placeholder="例: LaLa Clinic" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--radius-md);font-size:13px;font-family:inherit;outline:none;background:var(--surface);color:#000">
+      </div>
+    </div>
+    <div style="font-size:11px;color:#888;margin-top:8px">※ 入力した内容は自動で保存されます</div>
+  </div>
+
+  <div style="display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap;align-items:center">
+    <button class="btn primary" onclick="openSupplierModal(null)">＋ 仕入れ先を追加</button>
+    <button class="btn" onclick="openProductModal(null,null)">＋ 商品を追加</button>
   </div>
   <div id="master-list"></div>
 </div>
@@ -1453,6 +1477,13 @@ function buildCurrencySelect(id, currentVal, onchange) {
 // デフォルト仕入れ先を保存（リセット用）
 const DEFAULT_SUPPLIERS = JSON.parse(JSON.stringify(suppliers));
 
+// 発注元情報（編集可能）
+let senderInfo = {
+  company: 'Pitto Support',
+  subtitle: '医療美容製剤',
+  clinic: 'LaLa Clinic'
+};
+
 let currentSupplier=null,quantities={},prices={},priceCurrencies={},orders=[],remittances=[],orderCounter=1001,idCounter=300,activeCat='all',searchKeyword='';
 function uid(){return 'u'+(++idCounter)}
 
@@ -1468,7 +1499,16 @@ function showTab(t){
   if(t==='history')renderHistory();
   if(t==='remittance')renderRemitList();
   if(t==='expiry'){renderExpiryTab();}
-  if(t==='master')renderMaster();
+  if(t==='master'){
+    renderMaster();
+    // 発注元情報フィールドを最新値で更新
+    const sc=document.getElementById('sender-company');
+    const ss=document.getElementById('sender-subtitle');
+    const scl=document.getElementById('sender-clinic');
+    if(sc)sc.value=senderInfo.company||'';
+    if(ss)ss.value=senderInfo.subtitle||'';
+    if(scl)scl.value=senderInfo.clinic||'';
+  }
   if(t==='import')renderImport();
   if(t==='inventory')renderInventory();
 }
@@ -2148,10 +2188,10 @@ function printOrder(id){
   <div class="header">
     <div class="from-block">
       <div class="company">Purchase Order</div>
-      <div class="name">Pitto Support</div>
+      <div class="name">${senderInfo.company}</div>
       <div class="detail">
-        医療美容製剤<br>
-        発注担当: LaLa Clinic
+        ${senderInfo.subtitle}<br>
+        発注担当: ${senderInfo.clinic}
       </div>
     </div>
     <div class="to-block">
@@ -2186,7 +2226,7 @@ function printOrder(id){
       <td style="text-align:right" class="total">${getCurrencySymbol(o.currency||'USD')}${(o.currency==='KRW'||o.currency==='JPY')?Math.round(o.total).toLocaleString():o.total.toFixed(2)} ${o.currency||'USD'}</td>
     </tr></tfoot>
   </table>
-  <div class="footer">Pitto Support — 発注管理システム &nbsp;|&nbsp; ${o.date}</div>
+  <div class="footer">${senderInfo.company} — 発注管理システム &nbsp;|&nbsp; ${o.date}</div>
   <script>window.print();<\/script></body></html>`);
 }
 
@@ -3048,11 +3088,11 @@ function printTab(tab){
   @media print{body{padding:16px 20px}@page{margin:12mm;size:A4}}
 </style></head><body>
 <div class="header">
-  <div><div class="company">Pitto Support</div><div class="title">${title}</div></div>
+  <div><div class="company">${senderInfo.company}</div><div class="title">${title}</div></div>
   <div class="date">出力日: ${today}</div>
 </div>
 ${tableHtml}
-<div class="footer"><div>PITTO SUPPORT — 発注管理システム</div><div>${today}</div></div>
+<div class="footer"><div>${senderInfo.company} — 発注管理システム</div><div>${today}</div></div>
 <script>window.print();<\/script>
 </body></html>`;
 
@@ -3821,7 +3861,7 @@ function showIndicator(msg, color) {
 /* ===== Google Sheets へ保存 ===== */
 function saveToStorage() {
   const data = { suppliers, orders, remittances, imports, inventory, dispatches,
-    orderCounter, importCounter, dispatchCounter, idCounter, _savedAt: Date.now() };
+    orderCounter, importCounter, dispatchCounter, idCounter, senderInfo, _savedAt: Date.now() };
   // まずLocalStorageに即時保存（オフライン時もデータを守る）
   try { localStorage.setItem(LS_KEY, JSON.stringify(data)); } catch(e) {}
   // Google Sheetsへも非同期保存
@@ -3897,6 +3937,7 @@ function applyData(d) {
   if (d.importCounter) importCounter = d.importCounter;
   if (d.dispatchCounter) dispatchCounter = d.dispatchCounter;
   if (d.idCounter) idCounter = d.idCounter;
+  if (d.senderInfo) senderInfo = {...senderInfo, ...d.senderInfo};
 }
 
 function renderAll() {
@@ -4106,7 +4147,7 @@ function printExpiryList(){
 </style></head><body>
 <div class="header">
   <div class="header-left">
-    <div class="company">Pitto Support</div>
+    <div class="company">${senderInfo.company}</div>
     <div class="title">商品期限管理レポート</div>
     <div class="subtitle">消費期限 6ヶ月以内の商品一覧</div>
   </div>
@@ -4145,7 +4186,7 @@ function printExpiryList(){
 </table>
 
 <div class="footer">
-  <div class="footer-left">PITTO SUPPORT　／　発注管理システム</div>
+  <div class="footer-left">${senderInfo.company}　／　発注管理システム</div>
   <div class="footer-right">出力日: ${today}</div>
 </div>
 <script>window.print();<\/script>
@@ -4203,7 +4244,7 @@ function printPendingList(){
   @media print{body{padding:16px 20px}@page{margin:12mm;size:A4}}
 </style></head><body>
 <div class="header">
-  <div><div class="company">Pitto Support</div><div class="title">発注前リスト</div><div style="font-size:11px;color:#888;margin-top:3px">受注管理シートより集計 — 最新3ヶ月の未納商品</div></div>
+  <div><div class="company">${senderInfo.company}</div><div class="title">発注前リスト</div><div style="font-size:11px;color:#888;margin-top:3px">受注管理シートより集計 — 最新3ヶ月の未納商品</div></div>
   <div style="text-align:right;font-size:11px;color:#888">出力日: ${today}</div>
 </div>
 <div class="summary">
@@ -4240,7 +4281,7 @@ function printPendingList(){
   </tr></thead>
   <tbody>${tableRows}</tbody>
 </table>
-<div class="footer"><div>PITTO SUPPORT — 発注管理システム</div><div>${today}</div></div>
+<div class="footer"><div>${senderInfo.company} — 発注管理システム</div><div>${today}</div></div>
 <script>window.print();<\/script>
 </body></html>`;
 
@@ -4302,6 +4343,14 @@ function exportExpiryExcel(){
   ws['!merges'] = [{s:{r:0,c:0},e:{r:0,c:4}}];
   XLSX.utils.book_append_sheet(wb, ws, '消費期限アラート');
   XLSX.writeFile(wb, `消費期限アラート_${now.toISOString().slice(0,10)}.xlsx`);
+}
+
+/* 発注元情報 */
+function updateSenderInfo(){
+  senderInfo.company  = document.getElementById('sender-company')?.value  || 'Pitto Support';
+  senderInfo.subtitle = document.getElementById('sender-subtitle')?.value || '医療美容製剤';
+  senderInfo.clinic   = document.getElementById('sender-clinic')?.value   || 'LaLa Clinic';
+  saveToStorage();
 }
 
 /* 仕入れ先マスタを初期値に戻す */
