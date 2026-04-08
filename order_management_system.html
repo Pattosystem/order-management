@@ -2032,7 +2032,7 @@ function renderHistory(){
         ?`<span class="doc-btn" onclick="viewDocById('${o.id}','invoice')">📄 ${o.invoice.name}</span>`
         :`<button class="btn sm" onclick="openInvoiceForOrder('${o.id}')">＋ 添付</button>`}
     </td>
-    <td><button class="btn sm" onclick="openEditOrderModal('${o.id}')">編集</button> <button class="btn sm" onclick="printOrder('${o.id}')">PDF出力</button></td>
+    <td><button class="btn sm" onclick="openEditOrderModal('${o.id}')">編集</button> <button class="btn sm" onclick="printOrder('${o.id}',true)">PDF（単価あり）</button> <button class="btn sm" onclick="printOrder('${o.id}',false)" style="margin-left:2px">PDF（単価なし）</button></td>
     <td><button class="btn sm danger" onclick="deleteOrder('${o.id}')">削除</button></td>
   </tr>`).join('');
   if(cards)cards.innerHTML=orders.map(o=>`
@@ -2058,7 +2058,7 @@ function renderHistory(){
           ?`<button class="btn" onclick="viewDocById('${o.id}','invoice')">📄 INVOICE</button>`
           :`<button class="btn" onclick="openInvoiceForOrder('${o.id}')">＋ INVOICE</button>`}
         <button class="btn" onclick="openEditOrderModal('${o.id}')">編集</button>
-        <button class="btn" onclick="printOrder('${o.id}')">PDF出力</button>
+        <button class="btn" onclick="printOrder('${o.id}',true)">PDF（単価あり）</button><button class="btn" onclick="printOrder('${o.id}',false)">PDF（単価なし）</button>
         <button class="btn danger" onclick="deleteOrder('${o.id}')">削除</button>
       </div>
     </div>`).join('');
@@ -2158,7 +2158,7 @@ function saveEditOrder(){
 }
 function changeStatus(id,s){const o=orders.find(x=>x.id===id);if(o){o.status=s;saveToStorage();}}
 
-function printOrder(id){
+function printOrder(id, showPrice=true){
   const o=orders.find(x=>x.id===id);if(!o)return;
   const w=window.open('','_blank');
   w.document.write(`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>発注書 ${o.id}</title>
@@ -2211,19 +2211,16 @@ function printOrder(id){
       <th>商品名</th>
       <th>規格</th>
       <th style="width:60px;text-align:center">数量</th>
-      <th style="width:110px;text-align:right">単価</th>
-      <th style="width:110px;text-align:right">小計</th>
+      ${showPrice?'<th style="width:110px;text-align:right">単価</th><th style="width:110px;text-align:right">小計</th>':''}
     </tr></thead>
     <tbody>${o.items.map(i=>`<tr>
       <td style="font-weight:500">${i.name}</td>
       <td style="color:#555;font-size:12px">${i.spec||'—'}</td>
       <td style="text-align:center;font-family:monospace">${i.qty}</td>
-      <td style="text-align:right;font-family:monospace">${getCurrencySymbol(o.currency||'USD')}${(o.currency==='KRW'||o.currency==='JPY')?Math.round(i.price).toLocaleString():i.price.toFixed(2)}</td>
-      <td style="text-align:right;font-family:monospace">${getCurrencySymbol(o.currency||'USD')}${(o.currency==='KRW'||o.currency==='JPY')?Math.round(i.qty*i.price).toLocaleString():(i.qty*i.price).toFixed(2)}</td>
+      ${showPrice?`<td style="text-align:right;font-family:monospace">${getCurrencySymbol(o.currency||'USD')}${(o.currency==='KRW'||o.currency==='JPY')?Math.round(i.price).toLocaleString():i.price.toFixed(2)}</td><td style="text-align:right;font-family:monospace">${getCurrencySymbol(o.currency||'USD')}${(o.currency==='KRW'||o.currency==='JPY')?Math.round(i.qty*i.price).toLocaleString():(i.qty*i.price).toFixed(2)}</td>`:''}
     </tr>`).join('')}</tbody>
     <tfoot><tr>
-      <td colspan="4" style="text-align:right;letter-spacing:0.06em;text-transform:uppercase;font-size:12px">Total</td>
-      <td style="text-align:right" class="total">${getCurrencySymbol(o.currency||'USD')}${(o.currency==='KRW'||o.currency==='JPY')?Math.round(o.total).toLocaleString():o.total.toFixed(2)} ${o.currency||'USD'}</td>
+      ${showPrice?`<td colspan="4" style="text-align:right;letter-spacing:0.06em;text-transform:uppercase;font-size:12px">Total</td><td style="text-align:right" class="total">${getCurrencySymbol(o.currency||'USD')}${(o.currency==='KRW'||o.currency==='JPY')?Math.round(o.total).toLocaleString():o.total.toFixed(2)} ${o.currency||'USD'}</td>`:'<td colspan="3"></td>'}
     </tr></tfoot>
   </table>
   <div class="footer">${senderInfo.company} — 発注管理システム &nbsp;|&nbsp; ${o.date}</div>
