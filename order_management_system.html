@@ -1722,7 +1722,7 @@ function renderPendingList(){
               : `<td style="text-align:center;color:#ccc;font-size:13px">—</td>`;
           }).join('') : ''}
           <td><input type="number" min="1" value="${p.orderQty}" style="width:80px;padding:4px 8px;border:1.5px solid var(--border);border-radius:6px;font-family:'DM Mono',monospace;font-size:12px;outline:none;background:var(--surface);color:#000" oninput="setPendingQty(${realIdx},this.value)" onclick="if(!pendingList[${realIdx}].checked){setPendingCheck(${realIdx},true);renderPendingList();}"></td>
-          <td><input type="text" value="${p.note||''}" placeholder="メモ" style="width:100%;padding:4px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:11px;outline:none;background:var(--surface);color:#000" oninput="pendingList[${realIdx}].note=this.value"></td>
+          <td><input type="text" value="${p.note||''}" placeholder="メモ" style="width:100%;padding:4px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:11px;outline:none;background:var(--surface);color:#000" oninput="pendingList[${realIdx}].note=this.value;clearTimeout(window._pendingSaveTimer);window._pendingSaveTimer=setTimeout(()=>saveToStorage(),800)"></td>
         </tr>`;
       }).join('');
     }
@@ -1848,6 +1848,9 @@ function setPendingYmQty(idx, ym, v){
     const orderInput=row.querySelector('td:nth-child(7) input');
     if(orderInput) orderInput.value=newTotal;
   }
+  // 入力完了後に保存（デバウンス）
+  clearTimeout(window._pendingSaveTimer);
+  window._pendingSaveTimer = setTimeout(()=>saveToStorage(), 800);
 }
 
 function setPendingMonthQty(idx, field, v){
@@ -1880,11 +1883,15 @@ function setPendingMonthQty(idx, field, v){
     const orderInput=row.querySelector('td:nth-child(7) input');
     if(orderInput) orderInput.value=newTotal;
   }
+  clearTimeout(window._pendingSaveTimer);
+  window._pendingSaveTimer = setTimeout(()=>saveToStorage(), 800);
 }
 
 function setPendingQty(idx,val){
   pendingList[idx].orderQty=parseInt(val)||1;
   pendingList[idx].checked=true;
+  clearTimeout(window._pendingSaveTimer);
+  window._pendingSaveTimer = setTimeout(()=>saveToStorage(), 800);
 }
 
 function pendingCheckAll(){
