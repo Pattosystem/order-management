@@ -467,8 +467,8 @@ tbody tr:hover td{background:#fafbfc}
     <h3>📋 発注前リスト <span id="pending-source-label" style="font-size:12px;font-weight:400;color:var(--text-secondary)">（受注管理シートより自動集計 — 最新3ヶ月の未納商品）</span></h3>
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <label style="display:inline-flex;align-items:center;gap:6px;padding:7px 14px;background:#fff;border:1.5px solid var(--border);border-radius:var(--radius-md);cursor:pointer;font-size:12px;font-weight:500;color:#333;transition:all 0.15s" onmouseover="this.style.borderColor='var(--accent)'" onmouseout="this.style.borderColor='var(--border)'">
-        📂 Excelを読み込む
-        <input type="file" accept=".xlsx,.xls" onchange="loadExcelToPending(event)" style="display:none">
+        📂 CSVを読み込む
+        <input type="file" accept=".csv" onchange="loadCsvToPending(event)" style="display:none">
       </label>
       <button class="btn" onclick="printPendingList()">🖨️ PDF印刷</button>
       <button class="btn" onclick="exportPendingExcel()" style="border-color:#16a37f;color:#16a37f">📊 Excel出力</button>
@@ -3753,6 +3753,239 @@ function openInvoiceForOrder(orderId) {
 }
 
 /* ===== Excel → 発注前リスト 読み込み ===== */
+/* ===== CSV読み込み（Bcart受注データ）===== */
+function loadCsvToPending(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+
+  const reader = new FileReader();
+  reader.onload = async function(e) {
+    try {
+      // CP932/Shift-JIS対応デコード
+      let text;
+      try {
+        const decoder = new TextDecoder('shift-jis');
+        text = decoder.decode(e.target.result);
+      } catch {
+        text = new TextDecoder('utf-8').decode(e.target.result);
+      }
+
+      // CSV パース
+      const lines = text.split(/\r?\n/);
+      const headers = parseCsvLine(lines[0]);
+      const rows = [];
+      for (let i = 1; i < lines.length; i++) {
+        if (!lines[i].trim()) continue;
+        const vals = parseCsvLine(lines[i]);
+        const row = {};
+        headers.forEach((h, j) => row[h] = (vals[j] || '').trim());
+        rows.push(row);
+      }
+
+      // 未納商品行のみ抽出（対応状況≠完了、明細区分=商品）
+      const unfilled = rows.filter(r => r['対応状況'] !== '完了' && r['明細区分'] === '商品');
+
+      if (!unfilled.length) {
+        alert('未納商品が見つかりませんでした。\n「対応状況」が完了以外の商品行が存在するか確認してください。');
+        return;
+      }
+
+      // 月別集計 + クリニック別内訳
+      const monthly = {};       // {ym: {商品名: 数量}}
+      const clinicDetail = {};  // {商品名: {ym: [{clinic, qty}]}}
+
+      unfilled.forEach(r => {
+        const ym = (r['受注日時'] || '').slice(0, 7); // 2026-01
+        if (!ym) return;
+        const name = r['商品名'].trim();
+        const qty = parseFloat(r['受注数']) || 0;
+        const clinic = r['会社名'].trim() || '不明';
+        if (!name || qty <= 0) return;
+
+        // 月別集計
+        if (!monthly[ym]) monthly[ym] = {};
+        monthly[ym][name] = (monthly[ym][name] || 0) + qty;
+
+        // クリニック別内訳
+        if (!clinicDetail[name]) clinicDetail[name] = {};
+        if (!clinicDetail[name][ym]) clinicDetail[name][ym] = [];
+        const ex = clinicDetail[name][ym].find(x => x.clinic === clinic);
+        if (ex) ex.qty += qty;
+        else clinicDetail[name][ym].push({clinic, qty});
+      });
+
+      // 月リストをソート（古い順）
+      const allMonths = Object.keys(monthly).sort();
+
+      if (!allMonths.length) {
+        alert('集計できる月別データが見つかりませんでした。');
+        return;
+      }
+
+      // 月選択ダイアログ
+      const defaultSelected = allMonths.slice(-3);
+      const selectedMonths = await showMonthSelectorSimple(allMonths, defaultSelected, file.name);
+      if (!selectedMonths) return;
+
+      const targetMonths = allMonths.filter(m => selectedMonths.includes(m));
+
+      // 商品リストを作成
+      const allNames = new Set();
+      targetMonths.forEach(ym => Object.keys(monthly[ym] || {}).forEach(n => allNames.add(n)));
+
+      const newList = [];
+      allNames.forEach(name => {
+        const vals = targetMonths.map(ym => Math.round(monthly[ym]?.[name] || 0));
+        const total = vals.reduce((a, b) => a + b, 0);
+        if (total <= 0) return;
+
+        // 月ラベル用：最新3ヶ月をm3/m2/m1に割り当て
+        const entry = {
+          name, qty: total,
+          m3: vals[vals.length - 1] || 0,
+          m2: vals[vals.length - 2] || 0,
+          m1: vals[vals.length - 3] || 0,
+          months: targetMonths.filter((m, i) => vals[i] > 0),
+          checked: false, note: '', orderQty: total,
+          clinicDetail: {}
+        };
+
+        // クリニック内訳をターゲット月に絞る
+        targetMonths.forEach(ym => {
+          if (clinicDetail[name]?.[ym]) {
+            entry.clinicDetail[ym] = clinicDetail[name][ym];
+          }
+        });
+
+        newList.push(entry);
+      });
+
+      newList.sort((a, b) => b.qty - a.qty);
+
+      if (!newList.length) {
+        alert('未納商品が見つかりませんでした。');
+        return;
+      }
+
+      // 月ラベルを更新
+      const labelShorts = targetMonths.map(ym => {
+        const [y, m] = ym.split('-');
+        return `${parseInt(m)}月`;
+      });
+      const lm3 = labelShorts[labelShorts.length - 1] || '最新月';
+      const lm2 = labelShorts[labelShorts.length - 2] || '2番目';
+      const lm1 = labelShorts[labelShorts.length - 3] || '3番目';
+      const setLbl = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+      setLbl('ps-m3-label', lm3 + '分未納'); setLbl('th-m3', lm3);
+      setLbl('ps-m2-label', lm2 + '分未納'); setLbl('th-m2', lm2);
+      setLbl('ps-m1-label', lm1 + '分未納'); setLbl('th-m1', lm1);
+
+      pendingList = newList;
+
+      const now = new Date().toLocaleString('ja-JP');
+      const label = document.getElementById('pending-source-label');
+      if (label) label.textContent = `（${file.name} より読み込み — ${now} 更新 / 対象: ${targetMonths.join('・')}）`;
+
+      renderPendingList();
+      saveToStorage();
+      alert(`✓ 読み込み完了\n\n未納商品: ${newList.length}種\n対象月: ${targetMonths.join(' / ')}`);
+
+    } catch (err) {
+      alert('CSVの読み込みに失敗しました。\n' + err.message);
+    }
+  };
+  reader.readAsArrayBuffer(file);
+  event.target.value = '';
+}
+
+// CSV1行をパース（ダブルクォート対応）
+function parseCsvLine(line) {
+  const result = [];
+  let cur = '', inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const ch = line[i];
+    if (ch === '"') {
+      if (inQ && line[i+1] === '"') { cur += '"'; i++; }
+      else inQ = !inQ;
+    } else if (ch === ',' && !inQ) {
+      result.push(cur); cur = '';
+    } else {
+      cur += ch;
+    }
+  }
+  result.push(cur);
+  return result;
+}
+
+// 月選択ダイアログ（CSV版・シンプル）
+function showMonthSelectorSimple(allMonths, defaultSelected, fileName) {
+  const existing = document.getElementById('month-selector-modal');
+  if (existing) existing.remove();
+
+  const modal = document.createElement('div');
+  modal.id = 'month-selector-modal';
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:9999;display:flex;align-items:center;justify-content:center';
+
+  const formatLabel = ym => {
+    const [y, m] = ym.split('-');
+    return `${y}年${parseInt(m)}月`;
+  };
+
+  modal.innerHTML = `
+    <div style="background:#fff;border-radius:16px;padding:28px 32px;max-width:480px;width:90%;box-shadow:0 20px 60px rgba(0,0,0,0.2)">
+      <div style="font-size:11px;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;color:#888;margin-bottom:6px">CSVを読み込む</div>
+      <div style="font-size:17px;font-weight:700;margin-bottom:4px">対象月を選択してください</div>
+      <div style="font-size:12px;color:#888;margin-bottom:20px">${fileName}</div>
+      <div id="ms-checkboxes" style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:20px">
+        ${allMonths.map(ym => {
+          const checked = defaultSelected.includes(ym);
+          return `<label style="display:flex;align-items:center;gap:8px;padding:10px 12px;border:1.5px solid ${checked?'var(--accent)':'#e5e5e5'};border-radius:10px;cursor:pointer;background:${checked?'var(--accent-light)':'#fff'}" onclick="msToggle(this)">
+            <input type="checkbox" value="${ym}" ${checked?'checked':''} style="display:none">
+            <span style="width:16px;height:16px;border-radius:4px;border:2px solid ${checked?'var(--accent)':'#ccc'};background:${checked?'var(--accent)':'#fff'};display:flex;align-items:center;justify-content:center;flex-shrink:0" class="ms-check-icon">${checked?'<svg width="10" height="10" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" stroke="#fff" stroke-width="2" fill="none"/></svg>':''}</span>
+            <span style="font-size:13px;font-weight:500">${formatLabel(ym)}</span>
+          </label>`;
+        }).join('')}
+      </div>
+      <div style="font-size:11px;color:#888;margin-bottom:16px" id="ms-count">✓ ${defaultSelected.length}ヶ月選択中</div>
+      <div style="display:flex;gap:10px;justify-content:flex-end">
+        <button onclick="document.getElementById('month-selector-modal').dataset.result='cancel';document.getElementById('month-selector-modal').remove()" style="padding:10px 20px;border:1.5px solid #e5e5e5;border-radius:8px;background:#fff;cursor:pointer;font-size:13px;font-family:inherit">キャンセル</button>
+        <button onclick="msConfirm()" style="padding:10px 24px;border:none;border-radius:8px;background:var(--accent);color:#fff;cursor:pointer;font-size:13px;font-weight:600;font-family:inherit">この月で読み込む</button>
+      </div>
+    </div>`;
+  document.body.appendChild(modal);
+
+  window.msToggle = function(label) {
+    const cb = label.querySelector('input[type=checkbox]');
+    const icon = label.querySelector('.ms-check-icon');
+    cb.checked = !cb.checked;
+    const checked = cb.checked;
+    label.style.borderColor = checked ? 'var(--accent)' : '#e5e5e5';
+    label.style.background = checked ? 'var(--accent-light)' : '#fff';
+    icon.style.borderColor = checked ? 'var(--accent)' : '#ccc';
+    icon.style.background = checked ? 'var(--accent)' : '#fff';
+    icon.innerHTML = checked ? '<svg width="10" height="10" viewBox="0 0 10 10"><polyline points="1.5,5 4,7.5 8.5,2" stroke="#fff" stroke-width="2" fill="none"/></svg>' : '';
+    const cnt = document.querySelectorAll('#ms-checkboxes input:checked').length;
+    document.getElementById('ms-count').textContent = `✓ ${cnt}ヶ月選択中`;
+  };
+
+  window.msConfirm = function() {
+    const checked = [...document.querySelectorAll('#ms-checkboxes input:checked')].map(cb => cb.value);
+    if (!checked.length) { alert('1ヶ月以上選択してください'); return; }
+    modal.dataset.result = JSON.stringify(checked);
+    modal.remove();
+  };
+
+  return new Promise(resolve => {
+    const observer = new MutationObserver(() => {
+      if (!document.getElementById('month-selector-modal')) {
+        observer.disconnect();
+        resolve(modal.dataset.result === 'cancel' ? null : JSON.parse(modal.dataset.result || 'null'));
+      }
+    });
+    observer.observe(document.body, { childList: true });
+  });
+}
+
 function loadExcelToPending(event) {
   const file = event.target.files[0];
   if (!file) return;
@@ -3797,24 +4030,26 @@ function loadExcelToPending(event) {
         const ws = wb.Sheets[sheetName];
         const rows = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
 
-        // ヘッダー行を探す（「受注商品」を含む行）
+        // ヘッダー行を探す（「受注商品」「クリニック名」「未納数」を含む行）
         let headerRow = -1;
         let prodCol = -1, unfilledCol = -1, clinicCol = -1;
 
         for (let i = 0; i < Math.min(12, rows.length); i++) {
           const row = rows[i];
           for (let j = 0; j < row.length; j++) {
-            if (row[j] && String(row[j]).trim() === '受注商品') {
+            if (row[j] && String(row[j]).trim() === '受注商品' && prodCol < 0) {
+              // 最初に見つかった「受注商品」列を使用（左側の実受注列）
               headerRow = i; prodCol = j;
             }
             if (row[j] && String(row[j]).trim() === 'クリニック名') {
               clinicCol = j;
             }
-            if (row[j] && String(row[j]).includes('未納数') && String(row[j]).includes('SUM')) {
+            if (row[j] && String(row[j]).trim() === '未納数' && unfilledCol < 0) {
+              // 最初に見つかった「未納数」列を使用（SUM列ではなく実数列）
               unfilledCol = j;
             }
           }
-          if (headerRow >= 0 && unfilledCol >= 0) break;
+          if (headerRow >= 0 && unfilledCol >= 0 && clinicCol >= 0) break;
         }
 
         if (headerRow < 0 || unfilledCol < 0) return;
@@ -3841,7 +4076,7 @@ function loadExcelToPending(event) {
           if (!isFinite(qty) || qty <= 0) continue;
           monthly[sheetName][name] = (monthly[sheetName][name] || 0) + qty;
 
-          // クリニック別内訳を記録
+          // クリニック別内訳を記録（左側実受注列のみ）
           if(!clinicDetail[name]) clinicDetail[name] = {};
           if(!clinicDetail[name][sheetName]) clinicDetail[name][sheetName] = [];
           const existing = clinicDetail[name][sheetName].find(x => x.clinic === lastClinic);
