@@ -533,6 +533,7 @@ tbody tr:hover td{background:#fafbfc}
         <th style="width:60px;text-align:center;background:#fff8f0;color:#b45309" id="th-m3">3月</th>
         <th style="width:60px;text-align:center;background:#f0f9ff;color:#1d4ed8" id="th-m2">2月</th>
         <th style="width:60px;text-align:center;background:#f0fdf4;color:#15803d" id="th-m1">1月</th>
+        <th id="th-extra-months" style="text-align:center;color:#555;font-size:11px;width:80px"></th>
         <th style="width:160px">発注数（修正可）</th>
         <th>備考</th>
       </tr></thead>
@@ -1682,6 +1683,19 @@ function renderPendingList(){
     return `<td style="text-align:center"><input type="number" min="0" value="${v||0}" style="${inputStyle}" oninput="setPendingMonthQty(${idx},'${field}',this.value)" title="${field}の数量を修正できます"></td>`;
   };
 
+  // 4ヶ月以上の場合、追加列ヘッダーを更新
+  const thExtra = document.getElementById('th-extra-months');
+  if(thExtra){
+    if(pendingMonths.length > 3){
+      const extra = pendingMonths.slice(0, pendingMonths.length-3);
+      thExtra.textContent = extra.map(ym=>{ const[y,m]=ym.split('-'); return parseInt(m)+'月'; }).join('・');
+      thExtra.style.background='#f5f5f5';
+    } else {
+      thExtra.textContent='';
+      thExtra.style.background='';
+    }
+  }
+
   // Desktop table
   const tbody=document.getElementById('pending-tbody');
   if(tbody){
@@ -1697,6 +1711,16 @@ function renderPendingList(){
           <td style="font-size:12px;font-weight:${p.checked?'500':'400'}"><span onclick="showClinicDetail(${realIdx})" style="cursor:pointer;text-decoration:underline;text-underline-offset:2px;text-decoration-style:dotted;color:inherit" title="クリニック別内訳を見る">${p.name}</span></td>
           <td style="text-align:center;font-family:'DM Mono',monospace;font-weight:600;${urgentStyle}">${tot}</td>
           ${mCell(p.m3||0,'#b45309','m3',realIdx)}${mCell(p.m2||0,'#1d4ed8','m2',realIdx)}${mCell(p.m1||0,'#15803d','m1',realIdx)}
+          ${(()=>{
+            if(!pendingMonths.length || pendingMonths.length<=3) return '<td></td>';
+            const extraMonths = pendingMonths.slice(0, pendingMonths.length-3);
+            const extraTotal = extraMonths.reduce((s,ym)=>{
+              return s + (p.monthlyVals&&p.monthlyVals[ym]||0);
+            },0);
+            return extraTotal>0
+              ? `<td style="text-align:center;font-family:'DM Mono',monospace;font-size:11px;color:#888;cursor:pointer" title="${extraMonths.map(ym=>{const[y,m]=ym.split('-');return parseInt(m)+'月:+'+(p.monthlyVals&&p.monthlyVals[ym]||0)}).join(' / ')}" onclick="showClinicDetail(${realIdx})">+${extraTotal}<br><span style="font-size:10px">${extraMonths.length}ヶ月分</span></td>`
+              : '<td></td>';
+          })()}
           <td><input type="number" min="1" value="${p.orderQty}" style="width:80px;padding:4px 8px;border:1.5px solid var(--border);border-radius:6px;font-family:'DM Mono',monospace;font-size:12px;outline:none;background:var(--surface);color:#000" oninput="setPendingQty(${realIdx},this.value)" onclick="if(!pendingList[${realIdx}].checked){setPendingCheck(${realIdx},true);renderPendingList();}"></td>
           <td><input type="text" value="${p.note||''}" placeholder="メモ" style="width:100%;padding:4px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:11px;outline:none;background:var(--surface);color:#000" oninput="pendingList[${realIdx}].note=this.value"></td>
         </tr>`;
@@ -3814,7 +3838,7 @@ function loadCsvToPending(event) {
         else clinicDetail[name][ym].push({clinic, qty});
       });
 
-      // 月リストをソート（古い順）
+      // 月リストをソート（古い順）・全月対象
       const allMonths = Object.keys(monthly).sort();
 
       if (!allMonths.length) {
@@ -3822,12 +3846,7 @@ function loadCsvToPending(event) {
         return;
       }
 
-      // 月選択ダイアログ
-      const defaultSelected = allMonths.slice(-3);
-      const selectedMonths = await showMonthSelectorSimple(allMonths, defaultSelected, file.name);
-      if (!selectedMonths) return;
-
-      const targetMonths = allMonths.filter(m => selectedMonths.includes(m));
+      const targetMonths = allMonths; // 全月を対象
 
       // 商品リストを作成
       const allNames = new Set();
@@ -3839,12 +3858,16 @@ function loadCsvToPending(event) {
         const total = vals.reduce((a, b) => a + b, 0);
         if (total <= 0) return;
 
-        // 月ラベル用：最新3ヶ月をm3/m2/m1に割り当て
+        // 月ごとの数値を動的に保持（monthlyVals: {ym: qty}）
+        const monthlyVals = {};
+        targetMonths.forEach((ym, i) => { if(vals[i] > 0) monthlyVals[ym] = vals[i]; });
+        // 後方互換のためm3/m2/m1も設定（最新3ヶ月）
         const entry = {
           name, qty: total,
           m3: vals[vals.length - 1] || 0,
           m2: vals[vals.length - 2] || 0,
           m1: vals[vals.length - 3] || 0,
+          monthlyVals,
           months: targetMonths.filter((m, i) => vals[i] > 0),
           checked: false, note: '', orderQty: total,
           clinicDetail: {}
@@ -3867,14 +3890,15 @@ function loadCsvToPending(event) {
         return;
       }
 
-      // 月ラベルを更新
+      // 月ラベルを更新（最新3ヶ月分のみ既存ラベルに設定）
+      pendingMonths = targetMonths; // グローバルに保持
       const labelShorts = targetMonths.map(ym => {
         const [y, m] = ym.split('-');
         return `${parseInt(m)}月`;
       });
-      const lm3 = labelShorts[labelShorts.length - 1] || '最新月';
-      const lm2 = labelShorts[labelShorts.length - 2] || '2番目';
-      const lm1 = labelShorts[labelShorts.length - 3] || '3番目';
+      const lm3 = labelShorts[labelShorts.length - 1] || '—';
+      const lm2 = labelShorts[labelShorts.length - 2] || '—';
+      const lm1 = labelShorts[labelShorts.length - 3] || '—';
       const setLbl = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
       setLbl('ps-m3-label', lm3 + '分未納'); setLbl('th-m3', lm3);
       setLbl('ps-m2-label', lm2 + '分未納'); setLbl('th-m2', lm2);
@@ -4276,6 +4300,7 @@ function resetAllData() {
 /* 仕入れ先マスタを初期値に戻す */
 /* ===== 消費期限アラートタブ ===== */
 let expiryFilter = 'all';
+let pendingMonths = []; // CSV読み込み時の対象月リスト
 
 function setExpiryFilter(f){
   expiryFilter = f;
