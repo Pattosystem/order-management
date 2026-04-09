@@ -4227,7 +4227,8 @@ function showIndicator(msg, color) {
 /* ===== Google Sheets へ保存 ===== */
 function saveToStorage() {
   const data = { suppliers, orders, remittances, imports, inventory, dispatches,
-    orderCounter, importCounter, dispatchCounter, idCounter, senderInfo, _savedAt: Date.now() };
+    orderCounter, importCounter, dispatchCounter, idCounter, senderInfo,
+    pendingList, pendingMonths, _savedAt: Date.now() };
   // まずLocalStorageに即時保存（オフライン時もデータを守る）
   try { localStorage.setItem(LS_KEY, JSON.stringify(data)); } catch(e) {}
   // Google Sheetsへも非同期保存
@@ -4304,6 +4305,8 @@ function applyData(d) {
   if (d.dispatchCounter) dispatchCounter = d.dispatchCounter;
   if (d.idCounter) idCounter = d.idCounter;
   if (d.senderInfo) senderInfo = {...senderInfo, ...d.senderInfo};
+  if (d.pendingList && d.pendingList.length) pendingList = d.pendingList;
+  if (d.pendingMonths && d.pendingMonths.length) pendingMonths = d.pendingMonths;
 }
 
 function renderAll() {
@@ -4313,6 +4316,18 @@ function renderAll() {
   renderInventory();
   renderRemitList();
   renderMaster();
+  // pendingMonthsが復元されていればラベルも復元
+  if(pendingMonths && pendingMonths.length){
+    const labelShorts = pendingMonths.map(ym => {
+      const [y, m] = ym.split('-');
+      return `${parseInt(m)}月`;
+    });
+    const lm3 = labelShorts[labelShorts.length - 1] || '—';
+    const lm2 = labelShorts[labelShorts.length - 2] || '—';
+    const lm1 = labelShorts[labelShorts.length - 3] || '—';
+    const setLbl = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+    setLbl('ps-m3-label', lm3 + '分未納'); setLbl('ps-m2-label', lm2 + '分未納'); setLbl('ps-m1-label', lm1 + '分未納');
+  }
   renderPendingList();
 }
 
