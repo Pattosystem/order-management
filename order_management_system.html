@@ -870,6 +870,17 @@ tbody tr:hover td{background:#fafbfc}
 </div>
 </div>
 
+<!-- 発注前リスト クリニック内訳モーダル -->
+<div class="modal-bg" id="clinic-detail-modal">
+<div class="modal" style="max-width:560px;max-height:85vh;overflow-y:auto">
+  <h3 id="cdm-title">クリニック別内訳</h3>
+  <div id="cdm-content"></div>
+  <div class="mactions">
+    <button class="btn primary" onclick="closeModal('clinic-detail-modal')">閉じる</button>
+  </div>
+</div>
+</div>
+
 <!-- 在庫編集モーダル -->
 <div class="modal-bg" id="inventory-edit-modal">
 <div class="modal" style="max-width:520px;max-height:90vh;overflow-y:auto">
@@ -1683,7 +1694,7 @@ function renderPendingList(){
         const urgentStyle=tot>=50?'color:#dc2626;font-weight:600':tot>=20?'color:#c2410c;font-weight:500':'';
         return`<tr style="${p.checked?'background:var(--accent-light);':''}" id="pending-row-${realIdx}">
           <td style="text-align:center"><input type="checkbox" ${p.checked?'checked':''} onchange="setPendingCheck(${realIdx},this.checked)" style="cursor:pointer;width:16px;height:16px"></td>
-          <td style="font-size:12px;font-weight:${p.checked?'500':'400'}">${p.name}</td>
+          <td style="font-size:12px;font-weight:${p.checked?'500':'400'}"><span onclick="showClinicDetail(${realIdx})" style="cursor:pointer;text-decoration:underline;text-underline-offset:2px;text-decoration-style:dotted;color:inherit" title="クリニック別内訳を見る">${p.name}</span></td>
           <td style="text-align:center;font-family:'DM Mono',monospace;font-weight:600;${urgentStyle}">${tot}</td>
           ${mCell(p.m3||0,'#b45309','m3',realIdx)}${mCell(p.m2||0,'#1d4ed8','m2',realIdx)}${mCell(p.m1||0,'#15803d','m1',realIdx)}
           <td><input type="number" min="1" value="${p.orderQty}" style="width:80px;padding:4px 8px;border:1.5px solid var(--border);border-radius:6px;font-family:'DM Mono',monospace;font-size:12px;outline:none;background:var(--surface);color:#000" oninput="setPendingQty(${realIdx},this.value)" onclick="if(!pendingList[${realIdx}].checked){setPendingCheck(${realIdx},true);renderPendingList();}"></td>
@@ -1732,6 +1743,55 @@ function setPendingCheck(idx,val){
   // Update row highlight
   const row=document.getElementById('pending-row-'+idx);
   if(row)row.style.background=val?'var(--accent-light)':'';
+}
+
+function showClinicDetail(idx){
+  const p = pendingList[idx];
+  if(!p) return;
+  document.getElementById('cdm-title').textContent = p.name + ' — クリニック別内訳';
+  const detail = p.clinicDetail || {};
+  const sheets = Object.keys(detail);
+
+  if(!sheets.length){
+    document.getElementById('cdm-content').innerHTML =
+      '<div style="text-align:center;padding:24px;color:#888">内訳データがありません。<br>Excelを再度読み込むと表示されます。</div>';
+  } else {
+    // 月ラベル取得（ps-m3-labelなど）
+    const getLabel = (id) => document.getElementById(id)?.textContent?.replace('分未納','') || id;
+
+    let html = '';
+    // 最新月から順に表示
+    const sheetKeys = [...sheets].reverse();
+    sheetKeys.forEach(sn => {
+      const clinics = detail[sn];
+      if(!clinics || !clinics.length) return;
+      // シート名を短縮表示
+      const shortName = sn.trim().replace(/^\d{4}[年]?/,'').replace(/\s*$/,'');
+      const total = clinics.reduce((s,x)=>s+x.qty,0);
+      html += `
+        <div style="margin-bottom:20px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;padding-bottom:6px;border-bottom:2px solid var(--border)">
+            <div style="font-size:13px;font-weight:700;color:var(--accent)">${shortName}</div>
+            <div style="font-size:12px;color:#555">合計 <strong>${Math.round(total)}</strong>個 / ${clinics.length}クリニック</div>
+          </div>
+          <table style="width:100%;border-collapse:collapse;font-size:13px">
+            <thead><tr>
+              <th style="padding:6px 10px;text-align:left;background:#f5f5f5;font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:#555;border-bottom:1.5px solid #ddd">クリニック名</th>
+              <th style="padding:6px 10px;text-align:center;background:#f5f5f5;font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:#555;border-bottom:1.5px solid #ddd;width:80px">必要数</th>
+            </tr></thead>
+            <tbody>
+              ${[...clinics].sort((a,b)=>b.qty-a.qty).map(x=>`
+                <tr>
+                  <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;font-size:13px">${x.clinic}</td>
+                  <td style="padding:8px 10px;border-bottom:1px solid #f0f0f0;text-align:center;font-family:'DM Mono',monospace;font-weight:600;font-size:14px;color:${x.qty>=50?'#dc2626':x.qty>=20?'#c2410c':'var(--accent)'}">${Math.round(x.qty)}</td>
+                </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>`;
+    });
+    document.getElementById('cdm-content').innerHTML = html;
+  }
+  document.getElementById('clinic-detail-modal').classList.add('open');
 }
 
 function setPendingMonthQty(idx, field, v){
@@ -3730,6 +3790,7 @@ function loadExcelToPending(event) {
 
       // シートごとに未納商品を集計
       const monthly = {};
+      const clinicDetail = {}; // {商品名: {シート名: [{clinic, qty}]}}
       targetSheets.forEach(sn => monthly[sn] = {});
 
       targetSheets.forEach(sheetName => {
@@ -3738,13 +3799,16 @@ function loadExcelToPending(event) {
 
         // ヘッダー行を探す（「受注商品」を含む行）
         let headerRow = -1;
-        let prodCol = -1, unfilledCol = -1;
+        let prodCol = -1, unfilledCol = -1, clinicCol = -1;
 
         for (let i = 0; i < Math.min(12, rows.length); i++) {
           const row = rows[i];
           for (let j = 0; j < row.length; j++) {
             if (row[j] && String(row[j]).trim() === '受注商品') {
               headerRow = i; prodCol = j;
+            }
+            if (row[j] && String(row[j]).trim() === 'クリニック名') {
+              clinicCol = j;
             }
             if (row[j] && String(row[j]).includes('未納数') && String(row[j]).includes('SUM')) {
               unfilledCol = j;
@@ -3756,10 +3820,18 @@ function loadExcelToPending(event) {
         if (headerRow < 0 || unfilledCol < 0) return;
 
         const skipChars = ['▲','☆','◎','♬','✿','〇','★','●','♠','♣','③','②','♪','✦'];
+        let lastClinic = '';
 
         for (let i = headerRow + 1; i < rows.length; i++) {
           const row = rows[i];
           if (!row || row.length <= Math.max(prodCol, unfilledCol)) continue;
+
+          // クリニック名は空の場合、前の行から引き継ぐ
+          const rawClinic = clinicCol >= 0 ? row[clinicCol] : null;
+          if (rawClinic && String(rawClinic).trim()) {
+            lastClinic = String(rawClinic).replace(/^\t+/, '').trim();
+          }
+
           const rawName = row[prodCol];
           const rawQty  = row[unfilledCol];
           if (!rawName || rawQty === null || rawQty === undefined) continue;
@@ -3768,6 +3840,13 @@ function loadExcelToPending(event) {
           const qty = parseFloat(rawQty);
           if (!isFinite(qty) || qty <= 0) continue;
           monthly[sheetName][name] = (monthly[sheetName][name] || 0) + qty;
+
+          // クリニック別内訳を記録
+          if(!clinicDetail[name]) clinicDetail[name] = {};
+          if(!clinicDetail[name][sheetName]) clinicDetail[name][sheetName] = [];
+          const existing = clinicDetail[name][sheetName].find(x => x.clinic === lastClinic);
+          if(existing){ existing.qty += qty; }
+          else { clinicDetail[name][sheetName].push({clinic: lastClinic||'不明', qty}); }
         }
       });
 
@@ -3790,7 +3869,8 @@ function loadExcelToPending(event) {
           months,
           checked: false,
           note: '',
-          orderQty: total
+          orderQty: total,
+          clinicDetail: clinicDetail[name] || {}
         });
       });
 
