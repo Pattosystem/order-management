@@ -567,6 +567,7 @@ tbody tr:hover td{background:#fafbfc !important}
     <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <button class="btn" onclick="printTab('import')">🖨️ PDF印刷</button>
       <button class="btn" onclick="exportTabExcel('import')" style="border-color:var(--navy);color:var(--navy)">📊 Excel出力</button>
+      <button class="btn" onclick="reapplyStockedImports()" style="border-color:#7c3aed;color:#7c3aed">🔄 在庫済みを再反映</button>
 
       <button class="btn primary" onclick="openImportModal()">＋ 輸入登録</button>
     </div>
@@ -2735,6 +2736,62 @@ function saveImport(){
 function deleteImport(id){
   if(!confirm('この輸入記録を削除しますか？'))return;
   imports=imports.filter(x=>x.id!==id);renderImport();renderInventory();saveToStorage();
+}
+
+function reapplyStockedImports(){
+  // 在庫済みの輸入データを在庫管理・入出庫履歴に再反映
+  const stocked = imports.filter(i=>i.status==='stocked');
+  if(!stocked.length){
+    alert('在庫済みの輸入データがありません');
+    return;
+  }
+
+  // すでに反映済みかチェック（入出庫履歴に輸入IDが存在するか）
+  const alreadyApplied = new Set(
+    dispatches.filter(d=>d.notes&&d.notes.includes('輸入ID:')).map(d=>{
+      const m = d.notes.match(/輸入ID:\s*(SHP-\d+)/);
+      return m ? m[1] : null;
+    }).filter(Boolean)
+  );
+
+  const toApply = stocked.filter(i=>!alreadyApplied.has(i.id));
+
+  if(!toApply.length){
+    alert('すべての在庫済みデータはすでに反映済みです');
+    return;
+  }
+
+  const ok = confirm(
+    `${toApply.length}件の在庫済みデータを在庫管理・入出庫履歴に反映します。\n\n` +
+    toApply.map(i=>`• ${i.id} ${i.supplierName} ${i.tracking||''}`).join('\n') +
+    '\n\nよろしいですか？'
+  );
+  if(!ok) return;
+
+  let count = 0;
+  toApply.forEach(imp=>{
+    if(imp.items&&imp.items.length){
+      imp.items.forEach(item=>{
+        const itemLots = item.lots&&item.lots.length
+          ? item.lots
+          : [{qty:item.shippedQty||item.qty||1, expiry:item.expiry||''}];
+        itemLots.forEach(lot=>{
+          addToInventory(item.name, parseInt(lot.qty)||1, imp.supplierName||'', imp.id, imp.poId||'', lot.expiry||null);
+          count++;
+        });
+      });
+    } else if(imp.poId){
+      const order=orders.find(o=>o.id===imp.poId);
+      if(order) order.items.forEach(item=>{
+        addToInventory(item.name, item.qty, imp.supplierName||'', imp.id, imp.poId);
+        count++;
+      });
+    }
+  });
+
+  renderInventory();
+  saveToStorage();
+  alert(`✓ ${toApply.length}件の輸入データを反映しました（商品${count}件）`);
 }
 
 function markStocked(id){
