@@ -71,7 +71,8 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
   position:sticky;
   top:58px;
   z-index:49;
-  box-shadow:0 2px 8px rgba(0,0,0,0.06);
+  box-shadow:0 2px 12px rgba(0,0,0,0.08);
+  scrollbar-width:none;
 }
 .tab{
   padding:14px 20px;
@@ -154,19 +155,20 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 /* ── Table ── */
 .table-wrap{border:1.5px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;background:var(--surface);box-shadow:var(--shadow-sm)}
 .scroll-table{max-height:460px;overflow-y:auto}
-table{width:100%;border-collapse:collapse;font-size:15px}
+table{width:100%;border-collapse:collapse;font-size:14px}
 thead th{
-  text-align:left;padding:11px 16px;
+  text-align:left;padding:13px 18px;
   background:#1a2332;
-  color:rgba(255,255,255,0.75);
+  color:rgba(255,255,255,0.85);
   font-weight:700;
-  font-size:11px;
-  letter-spacing:0.07em;
+  font-size:12px;
+  letter-spacing:0.05em;
   text-transform:uppercase;
   border-bottom:none;
   position:sticky;top:0;z-index:1;
+  white-space:nowrap;
 }
-tbody td{padding:12px 16px;border-bottom:1px solid var(--border-light);vertical-align:middle;color:var(--text)}
+tbody td{padding:14px 18px;border-bottom:1px solid var(--border-light);vertical-align:middle;color:var(--text);font-size:14px}
 tbody tr:nth-child(even) td{background:#f8f9fc}
 tbody tr:hover td{background:#fff3e8 !important}
 tbody tr:last-child td{border-bottom:none}
@@ -329,10 +331,10 @@ tbody tr:hover td{background:#fafbfc}
 
 /* ── Inventory stats ── */
 .inv-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:12px;margin-bottom:4px}
-.inv-stat{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius-lg);padding:16px 18px;box-shadow:var(--shadow-sm)}
-.inv-stat .stat-label{font-size:10px;font-weight:600;letter-spacing:0.06em;text-transform:uppercase;color:#333;margin-bottom:6px}
-.inv-stat .stat-value{font-size:26px;font-weight:300;font-family:'DM Mono',monospace;color:var(--text);letter-spacing:-0.02em}
-.inv-stat .stat-sub{font-size:11px;color:#333;margin-top:2px}
+.inv-stat{background:var(--surface);border:1.5px solid var(--border);border-radius:var(--radius-lg);padding:22px 28px;flex:1;box-shadow:var(--shadow-sm)}
+.inv-stat .stat-label{font-size:12px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:var(--text-hint);margin-bottom:8px}
+.inv-stat .stat-value{font-size:38px;font-weight:700;font-family:'DM Mono',monospace;color:var(--text);letter-spacing:-0.03em}
+.inv-stat .stat-sub{font-size:13px;color:var(--text-hint);margin-top:4px}
 .alert-badge{display:inline-block;padding:2px 8px;border-radius:20px;font-size:10px;font-weight:600}
 .alert-low{background:#fef2f2;color:#dc2626}
 .alert-ok{background:var(--accent-light);color:var(--accent-dark)}
@@ -3678,9 +3680,9 @@ function renderInventory(){
   const outItems=keys.filter(k=>inventory[k].onHand===0).length;
   document.getElementById('inv-stats').innerHTML=`
     <div class="inv-stat"><div class="stat-label">Total SKUs</div><div class="stat-value">${totalSKU}</div><div class="stat-sub">tracked products</div></div>
-    <div class="inv-stat"><div class="stat-label">Units in Stock</div><div class="stat-value">${totalUnits}</div><div class="stat-sub">across all products</div></div>
-    <div class="inv-stat"><div class="stat-label">Low Stock</div><div class="stat-value" style="color:#c2410c">${lowItems}</div><div class="stat-sub">below alert threshold</div></div>
-    <div class="inv-stat"><div class="stat-label">Out of Stock</div><div class="stat-value" style="color:#dc2626">${outItems}</div><div class="stat-sub">zero units</div></div>`;
+    <div class="inv-stat"><div class="stat-label">総在庫数</div><div class="stat-value">${totalUnits}</div><div class="stat-sub">全商品合計</div></div>
+    <div class="inv-stat"><div class="stat-label">在庫少</div><div class="stat-value" style="color:#c2410c">${lowItems}</div><div class="stat-sub">アラート以下の商品</div></div>
+    <div class="inv-stat"><div class="stat-label">在庫切れ</div><div class="stat-value" style="color:#dc2626">${outItems}</div><div class="stat-sub">在庫ゼロの商品</div></div>`;
   const tbody=document.getElementById('inventory-tbody');
   const invcards=document.getElementById('inventory-cards');
   // 消費期限アラートバナー（在庫の有無に関わらず更新）
@@ -3716,7 +3718,7 @@ function renderInventory(){
         const inv=inventory[k];
         const isLow=inv.onHand>0&&inv.onHand<=inv.lowAlert,isOut=inv.onHand===0;
         const expBadge=renderExpiryBadge(inv.lots);
-        allRows+=`<tr class="${isOut||isLow?'low-stock-row':''}"><td style="font-size:13px;font-weight:500;padding-left:20px">${inv.name}</td><td><span class="cat-label" style="${getCatStyle(inv.cat)}">${inv.cat}</span></td><td style="font-size:13px;color:#1a1a1a">${inv.supplier}</td><td style="font-family:'DM Mono',monospace;font-weight:500;font-size:15px;color:${isOut?'#dc2626':isLow?'#c2410c':'var(--text)'}">${inv.onHand}</td><td style="font-family:'DM Mono',monospace;font-size:13px;color:#333">${inv.onOrder}</td><td style="font-family:'DM Mono',monospace;font-size:13px;color:#1d4ed8">${inv.inTransit}</td><td style="font-family:'DM Mono',monospace;font-size:13px;color:#1a1a1a">${inv.totalReceived}</td><td style="font-family:'DM Mono',monospace;font-size:13px;color:#1a1a1a">${inv.totalDispatched}</td><td>${expBadge}</td><td>${isOut?'<span class="alert-badge alert-low">在庫切れ</span>':isLow?'<span class="alert-badge alert-order">残少</span>':'<span class="alert-badge alert-ok">在庫あり</span>'}<div style="margin-top:4px;display:flex;align-items:center;gap:4px"><span style="font-size:10px;color:#333">アラート ≤</span><input type="number" value="${inv.lowAlert}" min="0" style="width:44px;font-size:11px;padding:2px 5px;border:1.5px solid var(--border);border-radius:4px;font-family:'DM Mono',monospace;outline:none;background:var(--surface);color:var(--text)" onchange="setAlert('${k.replace(/'/g,"\\'")}',this.value)"></div></td><td style="text-align:center;white-space:nowrap"><button class="btn sm" onclick="openInventoryEditModal('${k.replace(/'/g,"\\'")}')">編集</button> <button class="btn sm danger" onclick="deleteInventoryItem('${k.replace(/'/g,"\\'")}')">削除</button></td></tr>`;
+        allRows+=`<tr class="${isOut||isLow?'low-stock-row':''}"><td style="font-size:14px;font-weight:600;padding-left:20px;color:#1a2332">${inv.name}</td><td><span class="cat-label" style="${getCatStyle(inv.cat)}">${inv.cat}</span></td><td style="font-size:13px;color:#1a1a1a">${inv.supplier}</td><td style="font-family:'DM Mono',monospace;font-weight:700;font-size:18px;color:${isOut?'#dc2626':isLow?'#c2410c':'#1a2332'}">${inv.onHand}</td><td style="font-family:'DM Mono',monospace;font-size:13px;color:#333">${inv.onOrder}</td><td style="font-family:'DM Mono',monospace;font-size:13px;color:#1d4ed8">${inv.inTransit}</td><td style="font-family:'DM Mono',monospace;font-size:13px;color:#1a1a1a">${inv.totalReceived}</td><td style="font-family:'DM Mono',monospace;font-size:13px;color:#1a1a1a">${inv.totalDispatched}</td><td>${expBadge}</td><td>${isOut?'<span class="alert-badge alert-low">在庫切れ</span>':isLow?'<span class="alert-badge alert-order">残少</span>':'<span class="alert-badge alert-ok">在庫あり</span>'}<div style="margin-top:4px;display:flex;align-items:center;gap:4px"><span style="font-size:10px;color:#333">アラート ≤</span><input type="number" value="${inv.lowAlert}" min="0" style="width:44px;font-size:11px;padding:2px 5px;border:1.5px solid var(--border);border-radius:4px;font-family:'DM Mono',monospace;outline:none;background:var(--surface);color:var(--text)" onchange="setAlert('${k.replace(/'/g,"\\'")}',this.value)"></div></td><td style="text-align:center;white-space:nowrap"><button class="btn sm" onclick="openInventoryEditModal('${k.replace(/'/g,"\\'")}')">編集</button> <button class="btn sm danger" onclick="deleteInventoryItem('${k.replace(/'/g,"\\'")}')">削除</button></td></tr>`;
       });
     });
     tbody.innerHTML=allRows;
