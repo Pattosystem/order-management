@@ -983,6 +983,20 @@ const catColors={
   'Skin Care':['#ddf5ee','#0a5c44']
 };
 
+const catNameJP = {
+  'Filler':'フィラー',
+  'Botox':'ボトックス',
+  'Skin Booster':'スキンブースター',
+  'Anesthesia / Other':'麻酔・その他',
+  'Injectables':'インジェクタブル',
+  'Thread':'スレッド',
+  'Skin Care':'スキンケア',
+  'Hyaluronidase':'ヒアルロニダーゼ',
+  'Lipolysis':'脂肪溶解',
+  '—':'未分類',
+};
+function getCatJP(cat){ return catNameJP[cat]||cat; }
+
 function getCatStyle(cat){
   const c=catColors[cat]||['#f0ede6','#666'];
   return `background:${c[0]};color:${c[1]}`;
@@ -3084,7 +3098,7 @@ function buildInvCatButtons(){
   cats.forEach(cat=>{
     const btn = document.createElement('button');
     btn.dataset.cat = cat;
-    btn.textContent = cat;
+    btn.textContent = getCatJP(cat);
     btn.onclick = ()=>setInvCatFilter(cat);
     const isActive = invCatFilter===cat;
     btn.style.cssText = `padding:7px 16px;border-radius:50px;border:2px solid var(--border);background:${isActive?'var(--orange)':'#fff'};color:${isActive?'#fff':'var(--text)'};font-size:12px;font-weight:600;cursor:pointer;font-family:inherit;white-space:nowrap;transition:all 0.15s`;
@@ -3504,7 +3518,7 @@ function renderInventory(){
   const lowItems=keys.filter(k=>inventory[k].onHand>0&&inventory[k].onHand<=inventory[k].lowAlert).length;
   const outItems=keys.filter(k=>inventory[k].onHand===0).length;
   document.getElementById('inv-stats').innerHTML=`
-    <div class="inv-stat"><div class="stat-label">Total SKUs</div><div class="stat-value">${totalSKU}</div><div class="stat-sub">tracked products</div></div>
+    <div class="inv-stat"><div class="stat-label">総商品数</div><div class="stat-value">${totalSKU}</div><div class="stat-sub">管理中の商品</div></div>
     <div class="inv-stat"><div class="stat-label">総在庫数</div><div class="stat-value">${totalUnits}</div><div class="stat-sub">全商品合計</div></div>
     <div class="inv-stat"><div class="stat-label">在庫少</div><div class="stat-value" style="color:#c2410c">${lowItems}</div><div class="stat-sub">アラート以下の商品</div></div>
     <div class="inv-stat"><div class="stat-label">在庫切れ</div><div class="stat-value" style="color:#dc2626">${outItems}</div><div class="stat-sub">在庫ゼロの商品</div></div>`;
@@ -3538,14 +3552,14 @@ function renderInventory(){
     sortedCats.forEach(cat=>{
       const catKeys=grouped[cat];
       const catTotal=catKeys.reduce((s,k)=>s+inventory[k].onHand,0);
-      allRows+=`<tr class="cat-header-row"><td colspan="7" ><div style="display:flex;align-items:center;gap:10px"><span style="${getCatStyle(cat)};padding:4px 12px;border-radius:50px;font-size:12px;font-weight:700">${cat}</span><span style="font-size:13px;color:rgba(255,255,255,0.65)">${catKeys.length}種 · <strong style="color:#fff;font-family:DM Mono,monospace">${catTotal}</strong>個</span></div></td></tr>`;
+      allRows+=`<tr class="cat-header-row"><td colspan="7" ><div style="display:flex;align-items:center;gap:10px"><span style="${getCatStyle(cat)};padding:4px 12px;border-radius:50px;font-size:12px;font-weight:700">${getCatJP(cat)}</span><span style="font-size:13px;color:rgba(255,255,255,0.65)">${catKeys.length}種 · <strong style="color:#fff;font-family:DM Mono,monospace">${catTotal}</strong>個</span></div></td></tr>`;
       catKeys.forEach(k=>{
         const inv=inventory[k];
         const isLow=inv.onHand>0&&inv.onHand<=inv.lowAlert,isOut=inv.onHand===0;
         const expBadge=renderExpiryBadge(inv.lots);
         allRows+=`<tr>
           <td style="font-size:15px;font-weight:700;padding-left:20px">${inv.name}</td>
-          <td><span class="cat-label" style="${getCatStyle(inv.cat)}">${inv.cat}</span></td>
+          <td><span class="cat-label" style="${getCatStyle(inv.cat)}">${getCatJP(inv.cat)}</span></td>
           <td style="font-size:18px;font-weight:700;font-family:'DM Mono',monospace;color:${isOut?'var(--red)':isLow?'var(--amber)':'var(--text)'}">${inv.onHand}<span style="font-size:12px;font-weight:400;color:var(--text-sub)"> 個</span></td>
           <td>
             <input type="number" value="${inv.lowAlert}" min="0"
@@ -3586,7 +3600,7 @@ function renderInventory(){
         </div>
         <div class="m-card-rows">
           <div class="m-card-row"><div class="m-card-label">在庫数</div><div class="m-card-value mono" style="font-size:22px;font-weight:300;color:${isOut?'#dc2626':isLow?'#c2410c':'var(--orange)'}">${inv.onHand}</div></div>
-          <div class="m-card-row"><div class="m-card-label">カテゴリ</div><div class="m-card-value"><span class="cat-label" style="${getCatStyle(inv.cat)}">${inv.cat}</span></div></div>
+          <div class="m-card-row"><div class="m-card-label">カテゴリ</div><div class="m-card-value"><span class="cat-label" style="${getCatStyle(inv.cat)}">${getCatJP(inv.cat)}</span></div></div>
           ${inv.lots&&inv.lots.length?`<div class="m-card-row" style="grid-column:1/-1"><div class="m-card-label">消費期限</div><div class="m-card-value">${renderExpiryBadge(inv.lots)}</div></div>`:''}
           <div class="m-card-row" style="grid-column:1/-1;margin-top:4px;display:flex;gap:8px">
             <button class="btn sm" onclick="openInventoryEditModal(invKey)" style="flex:1">✏️ 編集</button>
