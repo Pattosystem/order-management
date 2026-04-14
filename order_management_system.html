@@ -228,6 +228,10 @@ tbody tr:hover td{background:#fafbfc !important}
 .cat-tab{padding:6px 14px;border-radius:var(--r-pill);border:1.5px solid var(--border);background:var(--surface);font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;color:var(--text);white-space:nowrap}
 .cat-tab:hover{border-color:#ccc;background:#f8f9fc}
 .cat-tab.active{background:var(--orange);color:#fff;border-color:var(--orange)}
+.cat-filter{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:14px;padding:10px 12px;background:var(--bg);border-radius:var(--r-lg);border:1px solid var(--border)}
+.cat-btn{padding:6px 14px;border-radius:var(--r-pill);border:1.5px solid var(--border);background:var(--surface);font-size:13px;font-weight:600;cursor:pointer;transition:all 0.15s;color:var(--text);white-space:nowrap}
+.cat-btn:hover{border-color:#ccc;background:#f8f9fc}
+.cat-btn.active{background:var(--orange);color:#fff;border-color:var(--orange)}
 .products-list{display:flex;flex-direction:column;gap:4px}
 .product-item{display:flex;align-items:center;padding:10px 12px;border-radius:var(--r);border:1.5px solid transparent;cursor:pointer;transition:all 0.15s}
 .product-item:hover{background:#f8f9fc;border-color:var(--border)}
@@ -527,7 +531,12 @@ tbody tr:hover td{background:#fafbfc !important}
   </div>
   <div class="import-pipeline" id="import-pipeline"></div>
   <div style="margin-top:24px">
-    <h3 style="font-size:13px;font-weight:500;color:#1a1a1a;margin-bottom:12px;letter-spacing:0.02em">輸入一覧</h3>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+    <h3 style="font-size:17px;font-weight:700;color:var(--text)">輸入一覧</h3>
+    <div class="search-bar" style="max-width:280px">
+      <input id="import-search" placeholder="追跡番号・仕入れ先で検索..." oninput="renderImport()">
+    </div>
+  </div>
     <div class="desktop-table table-wrap">
       <table>
         <thead><tr><th>輸入ID</th><th>仕入れ先</th><th>発注番号</th><th>船会社・追跡番号</th><th>ETA</th><th>通関</th><th>入荷日</th><th>関税・手数料</th><th>ステータス</th><th>AWB</th><th>薬事許可書</th><th>操作</th></tr></thead>
@@ -1891,7 +1900,7 @@ function selectSupplier(id){
 function renderCatFilter(){
   const cats=['all',...new Set(currentSupplier.products.map(p=>p.cat).filter(Boolean))];
   document.getElementById('cat-filter').innerHTML=cats.map(c=>
-    `<button class="cat-btn${activeCat===c?' active':''}" onclick="setCat('${c}')">${c==='all'?'All':c}</button>`).join('');
+    `<button class="cat-btn${activeCat===c?' active':''}" onclick="setCat('${c}')">${c==='all'?'すべて':getCatJP(c)}</button>`).join('');
 }
 
 function setCat(cat){activeCat=cat;renderCatFilter();renderProducts();}
@@ -2728,16 +2737,29 @@ function renderImport(){
   }).join('');
   const tbody=document.getElementById('import-tbody');
   const icards=document.getElementById('import-cards');
+  const importKw=(document.getElementById('import-search')||{value:''}).value.toLowerCase().trim();
+  const filteredImports = importKw
+    ? imports.filter(i=>
+        (i.tracking||'').toLowerCase().includes(importKw)||
+        (i.supplierName||'').toLowerCase().includes(importKw)||
+        (i.poId||'').toLowerCase().includes(importKw)
+      )
+    : imports;
   if(!imports.length){
     tbody.innerHTML='<tr><td colspan="10" class="empty">輸入登録がありません。「＋ 輸入登録」から追加してください。</td></tr>';
     if(icards)icards.innerHTML='<div class="m-empty">輸入登録がありません</div>';
     return;
   }
-  tbody.innerHTML=imports.map(i=>`<tr>
-    <td style="font-family:'DM Mono',monospace;font-size:11px">${i.id}</td>
-    <td style="font-size:12px">${i.supplierName}</td>
-    <td style="font-family:'DM Mono',monospace;font-size:11px;color:var(--orange)">${i.poId||'—'}</td>
-    <td style="font-size:12px">${i.carrier||'—'}<br><span style="font-size:10px;color:#333;font-family:'DM Mono',monospace">${i.tracking||''}</span></td>
+  if(!filteredImports.length){
+    tbody.innerHTML='<tr><td colspan="10" class="empty">「'+importKw+'」に一致する輸入データが見つかりません</td></tr>';
+    if(icards)icards.innerHTML='<div class="m-empty">検索結果なし</div>';
+    return;
+  }
+  tbody.innerHTML=filteredImports.map(i=>`<tr>
+    <td style="font-family:'DM Mono',monospace;font-size:13px;font-weight:600">${i.id}</td>
+    <td style="font-size:14px;font-weight:600">${i.supplierName}</td>
+    <td style="font-family:'DM Mono',monospace;font-size:13px;color:var(--orange);font-weight:600">${i.poId||'—'}</td>
+    <td style="font-size:13px">${i.carrier||'—'}<br><span style="font-size:12px;color:var(--text-sub);font-family:'DM Mono',monospace;font-weight:600">${i.tracking||''}</span></td>
     <td style="font-size:12px">${i.eta||'—'}</td>
     <td><span class="badge ${i.customs==='cleared'?'sent':i.customs==='in_progress'?'':'pending'}">${customsLabels[i.customs]||i.customs}</span></td>
     <td style="font-size:12px">${i.arrived||'—'}</td>
