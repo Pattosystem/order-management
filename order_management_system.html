@@ -2699,16 +2699,26 @@ function renderImport(){
   const statuses=['ordered','shipped','in_customs','arrived','stocked'];
   const dotClasses={ordered:'dot-ordered',shipped:'dot-shipped',in_customs:'dot-customs',arrived:'dot-arrived',stocked:'dot-stocked'};
   const colTitles={ordered:'発注済',shipped:'出荷済',in_customs:'通関中',arrived:'入荷済',stocked:'在庫済'};
+  const pipelineExpanded = window._pipelineExpanded || {};
+  window._pipelineExpanded = pipelineExpanded;
   document.getElementById('import-pipeline').innerHTML=statuses.map(st=>{
     const items=imports.filter(i=>i.status===st);
+    const limit = 3;
+    const isExpanded = pipelineExpanded[st];
+    const shown = isExpanded ? items : items.slice(0, limit);
+    const hasMore = items.length > limit;
     return`<div class="pipeline-col">
-      <h4><span class="pipeline-dot ${dotClasses[st]}"></span>${colTitles[st]} <span style="font-size:10px;color:#333;font-weight:400">(${items.length})</span></h4>
-      ${items.length?items.map(i=>`<div class="pipeline-card" onclick="openImportModal('${i.id}')">
+      <h4><span class="pipeline-dot ${dotClasses[st]}"></span>${colTitles[st]} <span style="font-size:10px;color:var(--text-sub);font-weight:400">(${items.length})</span></h4>
+      ${items.length ? shown.map(i=>`<div class="pipeline-card" onclick="openImportModal('${i.id}')">
         <div class="pc-supplier">${i.supplierName}</div>
         <div class="pc-tracking">${i.tracking||'追跡番号なし'}</div>
         ${i.eta?`<div class="pc-eta">ETA: ${i.eta}</div>`:''}
         ${i.poId?`<div class="pc-eta" style="color:var(--orange)">PO: ${i.poId}</div>`:''}
-      </div>`).join(''):`<div class="pipeline-count">—</div>`}
+      </div>`).join('') : '<div class="pipeline-count">—</div>'}
+      ${hasMore ? `<button onclick="event.stopPropagation();window._pipelineExpanded['${st}']=!window._pipelineExpanded['${st}'];renderImport()"
+        style="width:100%;margin-top:4px;padding:6px;border:1.5px dashed var(--border);border-radius:var(--r);background:none;color:var(--text-sub);font-size:12px;font-weight:600;cursor:pointer;font-family:inherit">
+        ${isExpanded ? '▲ 折りたたむ' : `▼ あと${items.length-limit}件を表示`}
+      </button>` : ''}
     </div>`;
   }).join('');
   const tbody=document.getElementById('import-tbody');
