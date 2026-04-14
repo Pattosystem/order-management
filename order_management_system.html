@@ -10,39 +10,42 @@
 <style>
 :root{
   --white:#ffffff;
-  --bg:#f7f8fa;
+  --bg:#f4f6f9;
   --surface:#ffffff;
-  --border:#eaecf0;
-  --border-light:#f2f4f7;
-  --text:#000000;
-  --text-secondary:#1a1a1a;
-  --text-hint:#333333;
-  --accent:#16a37f;
-  --accent-light:#ecfdf5;
-  --accent-dark:#0d7a5f;
+  --border:#e4e8ee;
+  --border-light:#eef1f5;
+  --text:#1a2332;
+  --text-secondary:#3d4d63;
+  --text-hint:#6b7a8d;
+  --accent:#f97316;
+  --accent-light:#fff7ed;
+  --accent-dark:#c2570b;
+  --accent2:#0ea5e9;
+  --accent2-light:#f0f9ff;
   --danger:#ef4444;
   --danger-light:#fef2f2;
-  --shadow-sm:0 1px 3px rgba(0,0,0,0.06),0 1px 2px rgba(0,0,0,0.04);
-  --shadow-md:0 4px 16px rgba(0,0,0,0.08),0 2px 6px rgba(0,0,0,0.04);
+  --shadow-sm:0 1px 4px rgba(0,0,0,0.06),0 1px 2px rgba(0,0,0,0.04);
+  --shadow-md:0 4px 20px rgba(0,0,0,0.08),0 2px 8px rgba(0,0,0,0.04);
   --shadow-lg:0 20px 48px rgba(0,0,0,0.12),0 8px 16px rgba(0,0,0,0.06);
-  --radius-sm:6px;
-  --radius-md:10px;
-  --radius-lg:14px;
-  --radius-xl:18px;
+  --radius-sm:8px;
+  --radius-md:12px;
+  --radius-lg:16px;
+  --radius-xl:20px;
 }
 *{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);font-size:16px;line-height:1.6;-webkit-font-smoothing:antialiased}
+body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);font-size:15px;line-height:1.65;-webkit-font-smoothing:antialiased;letter-spacing:-0.01em}
 
 /* ── Header ── */
 .header{
-  background:var(--white);
-  border-bottom:1px solid var(--border);
+  background:#1a2332;
+  border-bottom:none;
   padding:0 32px;
-  height:56px;
+  height:58px;
   display:flex;
   align-items:center;
   gap:16px;
   position:sticky;top:0;z-index:50;
+  box-shadow:0 2px 16px rgba(0,0,0,0.18);
 }
 .header-logo{
   width:32px;height:32px;
@@ -52,34 +55,35 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
   flex-shrink:0;
 }
 .header-logo svg{width:16px;height:16px;fill:none;stroke:#fff;stroke-width:2.2;stroke-linecap:round;stroke-linejoin:round}
-.header h1{font-size:14px;font-weight:500;letter-spacing:-0.01em;color:var(--text)}
+.header h1{font-size:15px;font-weight:700;letter-spacing:-0.01em;color:#ffffff}
 .header-sub{font-size:11px;color:#333;margin-left:4px;font-weight:300}
 .header-spacer{flex:1}
 .header-badge{font-size:10px;font-weight:500;background:var(--accent-light);color:var(--accent-dark);padding:3px 9px;border-radius:20px;letter-spacing:0.02em}
 
 /* ── Tabs ── */
 .tabs{
-  background:var(--white);
-  border-bottom:1px solid var(--border);
+  background:#ffffff;
+  border-bottom:2px solid var(--border);
   padding:0 32px;
   display:flex;
   gap:0;
   overflow-x:auto;
 }
 .tab{
-  padding:14px 18px;
+  padding:14px 20px;
   font-size:13px;
   font-weight:500;
   letter-spacing:0.01em;
   cursor:pointer;
-  border-bottom:2px solid transparent;
-  color:#1a1a1a;
+  border-bottom:3px solid transparent;
+  color:var(--text-hint);
   white-space:nowrap;
   flex-shrink:0;
-  transition:color 0.15s,border-color 0.15s;
+  transition:all 0.15s;
+  margin-bottom:-2px;
 }
 .tab:hover{color:var(--text)}
-.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent);font-weight:700;background:var(--accent-light)}
 
 /* ── Screen ── */
 .screen{display:none;padding:28px 32px;max-width:1280px;margin:0 auto}
@@ -767,19 +771,41 @@ tbody tr:hover td{background:#fafbfc}
     </div>
     <div class="mobile-cards" id="inventory-cards"></div>
   </div>
-  <div style="margin-top:24px">
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;cursor:pointer;padding:12px 16px;background:var(--bg);border-radius:var(--radius-lg);border:1.5px solid var(--border)" onclick="toggleDispatchHistory()">
-      <h3 style="font-size:15px;font-weight:600;color:#1a1a1a;margin:0">出庫履歴</h3>
-      <span id="dispatch-toggle-icon" style="font-size:18px;color:#888;transition:transform 0.2s">▼</span>
+
+  <!-- 入庫・出庫履歴タブ -->
+  <div style="margin-top:32px">
+    <!-- タブボタン -->
+    <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:0">
+      <button id="hist-tab-in" onclick="switchHistTab('in')"
+        style="padding:10px 24px;font-size:14px;font-weight:600;border:none;border-bottom:3px solid var(--accent);background:none;color:var(--accent);cursor:pointer;font-family:inherit;margin-bottom:-2px">
+        📥 入庫履歴
+      </button>
+      <button id="hist-tab-out" onclick="switchHistTab('out')"
+        style="padding:10px 24px;font-size:14px;font-weight:500;border:none;border-bottom:3px solid transparent;background:none;color:#888;cursor:pointer;font-family:inherit;margin-bottom:-2px">
+        📤 出庫履歴
+      </button>
     </div>
-    <div id="dispatch-history-section" style="display:none">
-    <div class="desktop-table table-wrap">
-      <table>
-        <thead><tr><th>日付</th><th>商品名</th><th>クリニック・届け先</th><th>数量</th><th>備考</th><th style="width:120px">操作</th></tr></thead>
-        <tbody id="dispatch-tbody"></tbody>
-      </table>
+
+    <!-- 入庫履歴 -->
+    <div id="hist-section-in" style="padding-top:16px">
+      <div class="desktop-table table-wrap">
+        <table>
+          <thead><tr><th>日付</th><th>商品名</th><th>種別</th><th>数量</th><th>備考</th></tr></thead>
+          <tbody id="inbound-tbody"></tbody>
+        </table>
+      </div>
+      <div class="mobile-cards" id="inbound-cards"></div>
     </div>
-    <div class="mobile-cards" id="dispatch-cards"></div>
+
+    <!-- 出庫履歴 -->
+    <div id="hist-section-out" style="display:none;padding-top:16px">
+      <div class="desktop-table table-wrap">
+        <table>
+          <thead><tr><th>日付</th><th>商品名</th><th>クリニック・届け先</th><th>数量</th><th>備考</th><th style="width:120px">操作</th></tr></thead>
+          <tbody id="dispatch-tbody"></tbody>
+        </table>
+      </div>
+      <div class="mobile-cards" id="dispatch-cards"></div>
     </div>
   </div>
 </div>
@@ -1524,7 +1550,7 @@ function showTab(t){
     if(scl)scl.value=senderInfo.clinic||'';
   }
   if(t==='import')renderImport();
-  if(t==='inventory')renderInventory();
+  if(t==='inventory'){renderInventory();renderInbound();}
 }
 
 /* ===== 発注前リスト ===== */
@@ -2306,7 +2332,7 @@ function printOrder(id, showPrice=true){
     .po-info .item .val{font-size:13px;font-weight:500}
     table{width:100%;border-collapse:collapse;margin-top:4px}
     th{text-align:left;padding:9px 12px;background:#f5f5f5;font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:#555;border-bottom:2px solid #ddd}
-    td{padding:11px 14px;border-bottom:1px solid #f0f0f0;font-size:13px}
+    td{padding:13px 16px;border-bottom:1px solid #f0f0f0;font-size:13px}
     tfoot td{font-weight:700;border-top:2px solid #1a1a1a;border-bottom:none;font-size:14px;padding-top:12px}
     .total{color:#1D9E75}
     .footer{margin-top:32px;padding-top:16px;border-top:1px solid #eee;font-size:10px;color:#bbb;text-align:center}
@@ -3118,13 +3144,53 @@ function deleteDispatch(id){
   renderInventory();saveToStorage();
 }
 
-function toggleDispatchHistory(){
-  const section = document.getElementById('dispatch-history-section');
-  const icon = document.getElementById('dispatch-toggle-icon');
-  if(!section) return;
-  const isOpen = section.style.display !== 'none';
-  section.style.display = isOpen ? 'none' : 'block';
-  if(icon) icon.style.transform = isOpen ? '' : 'rotate(180deg)';
+function switchHistTab(tab){
+  const inSection  = document.getElementById('hist-section-in');
+  const outSection = document.getElementById('hist-section-out');
+  const inBtn  = document.getElementById('hist-tab-in');
+  const outBtn = document.getElementById('hist-tab-out');
+  if(!inSection || !outSection) return;
+  if(tab==='in'){
+    inSection.style.display='block'; outSection.style.display='none';
+    inBtn.style.borderBottomColor='var(--accent)'; inBtn.style.color='var(--accent)'; inBtn.style.fontWeight='600';
+    outBtn.style.borderBottomColor='transparent'; outBtn.style.color='#888'; outBtn.style.fontWeight='500';
+    renderInbound();
+  } else {
+    inSection.style.display='none'; outSection.style.display='block';
+    outBtn.style.borderBottomColor='var(--accent)'; outBtn.style.color='var(--accent)'; outBtn.style.fontWeight='600';
+    inBtn.style.borderBottomColor='transparent'; inBtn.style.color='#888'; inBtn.style.fontWeight='500';
+  }
+}
+
+function renderInbound(){
+  const tbody = document.getElementById('inbound-tbody');
+  const cards = document.getElementById('inbound-cards');
+  // 入庫記録 = dispatches の type==='in' + 輸入管理の在庫化記録
+  const inRecords = dispatches.filter(d => d.type==='in' || d.type==='adj');
+  if(!tbody) return;
+  if(!inRecords.length){
+    tbody.innerHTML='<tr><td colspan="5" class="empty">入庫記録がありません</td></tr>';
+    if(cards) cards.innerHTML='<div class="m-empty">入庫記録がありません</div>';
+    return;
+  }
+  tbody.innerHTML = inRecords.map(d=>`<tr style="background:#f0fdf4">
+    <td style="font-size:13px">${d.date}</td>
+    <td style="font-size:13px;font-weight:500">${d.product}</td>
+    <td style="font-size:13px;color:#15803d">${d.type==='adj'?'📊 在庫調整':'📥 直接入庫'}</td>
+    <td style="font-family:'DM Mono',monospace;font-weight:600;color:#15803d">+${Math.abs(d.qty)}</td>
+    <td style="font-size:13px;color:#555">${d.notes||'—'}</td>
+  </tr>`).join('');
+  if(cards) cards.innerHTML = inRecords.map(d=>`
+    <div class="m-card" style="background:#f0fdf4;border-color:#86efac">
+      <div class="m-card-header">
+        <div>
+          <div class="m-card-title" style="font-size:13px">${d.product}</div>
+          <div class="m-card-sub">${d.date} · ${d.type==='adj'?'在庫調整':'直接入庫'}</div>
+        </div>
+        <div style="font-size:20px;font-weight:600;color:#15803d">+${Math.abs(d.qty)}</div>
+      </div>
+      ${d.notes?`<div style="font-size:12px;color:#555;margin-top:6px">${d.notes}</div>`:''}
+    </div>`).join('');
 }
 
 function setAlert(key,val){if(inventory[key])inventory[key].lowAlert=parseInt(val)||0;renderInventory();}
