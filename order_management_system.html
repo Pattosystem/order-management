@@ -2915,15 +2915,17 @@ function addToInventory(productName,qty,supplier,shipmentId,poId,expiry){
   const key=productName+'||'+supplier;
   if(!inventory[key]){
     inventory[key]={key,name:productName,supplier,cat:getCatForProduct(productName),
-      onHand:0,onOrder:0,inTransit:0,totalReceived:0,totalDispatched:0,lowAlert:5,receipts:[]};
+      onHand:0,onOrder:0,inTransit:0,totalReceived:0,totalDispatched:0,lowAlert:5,receipts:[],lots:[]};
   }
+  // 既存データにreceiptsやlotsがない場合の補完
+  if(!inventory[key].receipts) inventory[key].receipts=[];
+  if(!inventory[key].lots) inventory[key].lots=[];
   inventory[key].onHand+=qty;
   inventory[key].totalReceived+=qty;
   inventory[key].inTransit=Math.max(0,inventory[key].inTransit-qty);
   inventory[key].receipts.push({date:new Date().toLocaleDateString('en-US'),qty,shipmentId,poId});
   // 消費期限ロット管理
   if(expiry){
-    if(!inventory[key].lots) inventory[key].lots=[];
     const existing=inventory[key].lots.find(l=>l.expiry===expiry);
     if(existing){ existing.qty+=qty; }
     else{ inventory[key].lots.push({expiry,qty,addedDate:new Date().toISOString().split('T')[0]}); }
