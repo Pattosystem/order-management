@@ -117,8 +117,8 @@ tbody td{
 }
 tbody tr:last-child td{border-bottom:none}
 tbody tr:nth-child(even) td{background:#fafbfc}
-tbody tr:hover td{background:#fff3e8 !important}
-.low-stock-row td{background:#fffbeb !important}
+tbody tr:hover td{background:#fafbfc !important}
+.low-stock-row td{background:#fff8f0 !important}
 
 /* ===== BADGES ===== */
 .badge{display:inline-flex;align-items:center;padding:4px 12px;border-radius:var(--r-pill);font-size:12px;font-weight:700;white-space:nowrap}
@@ -187,7 +187,7 @@ tbody tr:hover td{background:#fff3e8 !important}
 .ps-sub{font-size:12px;color:var(--text-sub);margin-top:5px}
 
 /* ===== INVENTORY CATEGORY HEADER ===== */
-.cat-header-row td{background:var(--navy) !important;padding:10px 16px !important}
+.cat-header-row td{background:var(--navy) !important;padding:10px 16px !important;border-top:none !important}
 
 /* ===== IMPORT CARDS ===== */
 .import-lane{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px}
@@ -2129,7 +2129,7 @@ function printOrder(id, showPrice=true){
 tbody tr:nth-child(even) td{background:#fafbfc}
 tr:hover td{background:#fff3e8 !important}
 #pending-tbody tr:nth-child(even) td{background:#fafbfc}
-#pending-tbody tr:hover td{background:#fff3e8 !important}
+#pending-tbody tr:hover td{background:#fafbfc !important}
     tfoot td{font-weight:700;border-top:2px solid #1a1a1a;border-bottom:none;font-size:14px;padding-top:12px}
     .total{color:#1D9E75}
     .footer{margin-top:32px;padding-top:16px;border-top:1px solid #eee;font-size:10px;color:#bbb;text-align:center}
