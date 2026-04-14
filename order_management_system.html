@@ -267,7 +267,7 @@ tbody tr:hover td{background:#fafbfc}
 .badge{display:inline-flex;align-items:center;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500}
 .badge.pending{background:#fff7ed;color:#c2410c}
 .badge.sent{background:var(--accent-light);color:var(--accent-dark)}
-.badge.paid{background:#eff6ff;color:#1d4ed8}
+.badge.paid{background:#eff6ff;color:#1a2332}
 .tag{display:inline-block;padding:2px 7px;border-radius:4px;font-size:10px;background:var(--bg);color:#333;margin-left:5px;border:1px solid var(--border)}
 .empty{text-align:center;padding:48px;color:#333;font-size:15px;font-weight:300}
 
@@ -326,7 +326,7 @@ tbody tr:hover td{background:#fafbfc}
 .pipeline-count{font-size:18px;font-weight:300;color:#333;text-align:center;padding:8px 0}
 .import-status{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:20px;font-size:11px;font-weight:500}
 .is-ordered{background:#fff7ed;color:#c2410c}
-.is-shipped{background:#eff6ff;color:#1d4ed8}
+.is-shipped{background:#eff6ff;color:#1a2332}
 .is-in_customs{background:#f5f3ff;color:#6d28d9}
 .is-arrived{background:#ecfeff;color:#0e7490}
 .is-stocked{background:var(--accent-light);color:var(--accent-dark)}
@@ -507,7 +507,7 @@ tbody tr:hover td{background:#fafbfc}
     </div>
     <div class="inv-stat" style="background:#f0f9ff;border:1.5px solid #93c5fd;border-radius:var(--radius-lg);padding:14px 16px">
       <div class="stat-label" style="color:#1e40af" id="ps-m2-label">2月分未納</div>
-      <div class="stat-value" style="font-size:28px;color:#1d4ed8" id="ps-m2-qty">0</div>
+      <div class="stat-value" style="font-size:28px;color:#1a2332" id="ps-m2-qty">0</div>
       <div class="stat-sub" style="color:#1e40af"><span id="ps-m2-items">0</span>種</div>
     </div>
     <div class="inv-stat" style="background:#f0fdf4;border:1.5px solid #86efac;border-radius:var(--radius-lg);padding:14px 16px">
@@ -1769,12 +1769,12 @@ function renderPendingList(){
         const urgentStyle=tot>=50?'color:#dc2626;font-weight:600':tot>=20?'color:#c2410c;font-weight:500':'';
         return`<tr style="${p.checked?'background:var(--accent-light);':''}" id="pending-row-${realIdx}">
           <td style="text-align:center"><input type="checkbox" ${p.checked?'checked':''} onchange="setPendingCheck(${realIdx},this.checked)" style="cursor:pointer;width:16px;height:16px"></td>
-          <td style="font-size:12px;font-weight:${p.checked?'500':'400'}"><span onclick="showClinicDetail(${realIdx})" style="cursor:pointer;text-decoration:underline;text-underline-offset:2px;text-decoration-style:dotted;color:inherit" title="クリニック別内訳を見る">${p.name}</span></td>
+          <td style="font-size:12px;font-weight:${p.checked?'500':'400'}"><span onclick="showClinicDetail(${realIdx})" style="cursor:pointer;color:#1a2332;text-decoration:underline;text-underline-offset:2px;text-decoration-color:#ccc" title="クリニック別内訳を見る">${p.name}</span></td>
           <td style="text-align:center;font-family:'DM Mono',monospace;font-weight:600;${urgentStyle}">${tot}</td>
           ${pendingMonths.length ? pendingMonths.map(ym=>{
             const v = p.monthlyVals&&p.monthlyVals[ym] ? Math.round(p.monthlyVals[ym]) : 0;
             const [y,mo] = ym.split('-');
-            const colors = ['#b45309','#1d4ed8','#15803d','#6b21a8','#0369a1','#b91c1c','#047857'];
+            const colors = ['#f97316','#1a2332','#1a2332','#1a2332','#1a2332','#1a2332','#1a2332'];
             const idx2 = pendingMonths.length-1-pendingMonths.indexOf(ym);
             const col = colors[idx2] || '#555';
             return v>0
@@ -1800,7 +1800,7 @@ function renderPendingList(){
             <div class="m-card-title" style="font-size:12px">${p.name}</div>
             <div style="display:flex;gap:6px;margin-top:6px;flex-wrap:wrap">
               ${(p.m3||0)>0?`<span style="font-size:11px;padding:2px 8px;background:#fff8f0;border-radius:4px;color:#b45309;font-weight:500">3月: ${p.m3}</span>`:''}
-              ${(p.m2||0)>0?`<span style="font-size:11px;padding:2px 8px;background:#f0f9ff;border-radius:4px;color:#1d4ed8;font-weight:500">2月: ${p.m2}</span>`:''}
+              ${(p.m2||0)>0?`<span style="font-size:11px;padding:2px 8px;background:#f0f9ff;border-radius:4px;color:#1a2332;font-weight:500">2月: ${p.m2}</span>`:''}
               ${(p.m1||0)>0?`<span style="font-size:11px;padding:2px 8px;background:#f0fdf4;border-radius:4px;color:#15803d;font-weight:500">1月: ${p.m1}</span>`:''}
             </div>
           </div>
@@ -3213,16 +3213,16 @@ function renderStockInbound(){
     return;
   }
 
-  tbody.innerHTML = inRecords.map(d=>`<tr style="background:#f0fdf4">
+  tbody.innerHTML = inRecords.map(d=>`<tr>
     <td style="font-size:13px;color:var(--text-hint)">${d.date}</td>
     <td style="font-size:14px;font-weight:600">${d.product}</td>
-    <td><span style="background:#dcfce7;color:#15803d;padding:3px 10px;border-radius:50px;font-size:11px;font-weight:600">${d.type==='adj'?'在庫調整':'直接入庫'}</span></td>
-    <td style="font-family:'DM Mono',monospace;font-weight:700;font-size:16px;color:#15803d">+${Math.abs(d.qty)}</td>
+    <td><span style="background:var(--accent-light);color:var(--accent);padding:4px 12px;border-radius:50px;font-size:12px;font-weight:700;border:1.5px solid #fed7aa">${d.type==='adj'?'在庫調整':'直接入庫'}</span></td>
+    <td style="font-family:'DM Mono',monospace;font-weight:700;font-size:16px;color:#1a2332">+${Math.abs(d.qty)}</td>
     <td style="font-size:13px;color:var(--text-hint)">${d.notes||'—'}</td>
   </tr>`).join('');
 
   if(cards) cards.innerHTML = inRecords.map(d=>`
-    <div class="m-card" style="background:#f0fdf4;border-color:#86efac">
+    <div class="m-card">
       <div class="m-card-header">
         <div>
           <div class="m-card-title">${d.product}</div>
@@ -3254,7 +3254,7 @@ function renderStockOutbound(){
     <td style="font-size:13px;color:var(--text-hint)">${d.date}</td>
     <td style="font-size:14px;font-weight:600">${d.product}</td>
     <td style="font-size:13px;color:var(--accent)">${d.destination||'—'}</td>
-    <td style="font-family:'DM Mono',monospace;font-weight:700;font-size:16px;color:var(--danger)">−${Math.abs(d.qty)}</td>
+    <td style="font-family:'DM Mono',monospace;font-weight:700;font-size:16px;color:#dc2626">−${Math.abs(d.qty)}</td>
     <td style="font-size:13px;color:var(--text-hint)">${d.notes||'—'}</td>
     <td style="text-align:center;white-space:nowrap">
       <button class="btn sm" onclick="openEditDispatchModal('${d.id}')">編集</button>
@@ -3762,7 +3762,7 @@ function renderInventory(){
   }
 
   if(!keys.length){
-    tbody.innerHTML='<tr><td colspan="11" class="empty">在庫データがありません。<br><small>輸入管理で「→ 在庫化」を押すと在庫に反映されます。</small></td></tr>';
+    tbody.innerHTML='<tr><td colspan="10" class="empty">在庫データがありません。<br><small>輸入管理で「→ 在庫化」を押すと在庫に反映されます。</small></td></tr>';
     if(invcards)invcards.innerHTML='<div class="m-empty">在庫データがありません</div>';
   } else {
     const grouped={};
@@ -3773,7 +3773,7 @@ function renderInventory(){
     sortedCats.forEach(cat=>{
       const catKeys=grouped[cat];
       const catTotal=catKeys.reduce((s,k)=>s+inventory[k].onHand,0);
-      allRows+=`<tr style="background:linear-gradient(90deg,#1a2332,#2d3f55);border-top:3px solid var(--accent)"><td colspan="11" style="padding:11px 16px"><div style="display:flex;align-items:center;gap:10px"><span style="${getCatStyle(cat)};padding:4px 12px;border-radius:50px;font-size:12px;font-weight:700">${cat}</span><span style="font-size:12px;color:rgba(255,255,255,0.7)">${catKeys.length}種 · 合計 <strong style="color:#fff">${catTotal}</strong>個</span></div></td></tr>`;
+      allRows+=`<tr style="background:linear-gradient(90deg,#1a2332,#2d3f55);border-top:3px solid var(--accent)"><td colspan="10" style="padding:11px 16px"><div style="display:flex;align-items:center;gap:10px"><span style="${getCatStyle(cat)};padding:4px 12px;border-radius:50px;font-size:12px;font-weight:700">${cat}</span><span style="font-size:12px;color:rgba(255,255,255,0.7)">${catKeys.length}種 · 合計 <strong style="color:#fff">${catTotal}</strong>個</span></div></td></tr>`;
       catKeys.forEach(k=>{
         const inv=inventory[k];
         const isLow=inv.onHand>0&&inv.onHand<=inv.lowAlert,isOut=inv.onHand===0;
@@ -3787,7 +3787,7 @@ function renderInventory(){
               style="width:56px;font-size:14px;font-weight:500;padding:4px 8px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Mono',monospace;outline:none;background:var(--surface);color:var(--text);text-align:center"
               onchange="setAlert('${k.replace(/'/g,"\\'")}',this.value)">
           </td>
-          <td style="font-size:14px;color:${expBadge.includes('期限切れ')?'#dc2626':expBadge.includes('🚨')||expBadge.includes('⏰')?'#c2410c':'#15803d'}">${expBadge||'—'}</td>
+          <td style="font-size:14px;color:${expBadge&&expBadge.includes('期限切れ')?'#dc2626':expBadge&&(expBadge.includes('🚨')||expBadge.includes('⏰'))?'#c2410c':'var(--text)'}">${expBadge||'—'}</td>
           <td>
             ${isOut
               ?'<span style="background:#fef2f2;color:#dc2626;padding:5px 14px;border-radius:50px;font-size:13px;font-weight:700;border:1.5px solid #fecaca">要補充</span>'
@@ -4861,7 +4861,7 @@ function printPendingList(){
       <td class="name">${p.name}</td>
       <td class="center bold">${p.qty}</td>
       <td class="center" style="color:#b45309">${p.m3||'—'}</td>
-      <td class="center" style="color:#1d4ed8">${p.m2||'—'}</td>
+      <td class="center" style="color:#1a2332">${p.m2||'—'}</td>
       <td class="center" style="color:#15803d">${p.m1||'—'}</td>
       <td class="center">${p.orderQty}</td>
       <td>${p.note||''}</td>
@@ -4909,7 +4909,7 @@ function printPendingList(){
   </div>
   <div class="card" style="background:#f0f9ff">
     <div class="lbl" style="color:#1e40af">2月分</div>
-    <div class="val" style="color:#1d4ed8">${totalM2.toLocaleString()}</div>
+    <div class="val" style="color:#1a2332">${totalM2.toLocaleString()}</div>
     <div class="sub" style="color:#1e40af">${pendingList.filter(p=>p.m2>0).length}種</div>
   </div>
   <div class="card" style="background:#f0fdf4">
@@ -4923,7 +4923,7 @@ function printPendingList(){
     <th></th><th>商品名</th>
     <th class="center">合計</th>
     <th class="center" style="color:#b45309" id="th-m3">3月</th>
-    <th class="center" style="color:#1d4ed8" id="th-m2">2月</th>
+    <th class="center" style="color:#1a2332" id="th-m2">2月</th>
     <th class="center" style="color:#15803d" id="th-m1">1月</th>
     <th class="center">発注数</th>
     <th>備考</th>
