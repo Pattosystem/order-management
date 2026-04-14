@@ -4239,11 +4239,12 @@ function saveToStorage() {
   // まずLocalStorageに即時保存（オフライン時もデータを守る）
   try { localStorage.setItem(LS_KEY, JSON.stringify(data)); } catch(e) {}
 
-  // クラウドにはsuppliersを除いた軽量データを送る（suppliersはDEFAULT_SUPPLIERSから復元可能）
+  // クラウドには軽量データのみ送る
+  // suppliers: DEFAULT_SUPPLIERSから復元可能なので除外
+  // pendingList/pendingMonths: CSVから再読み込みするので除外
   const cloudData = { orders, remittances, imports, inventory, dispatches,
     orderCounter, importCounter, dispatchCounter, idCounter, senderInfo,
-    pendingList, pendingMonths, _savedAt: data._savedAt,
-    // suppliersのうちデフォルト以外（ユーザーが追加した仕入れ先）だけ保存
+    _savedAt: data._savedAt,
     customSuppliers: suppliers.filter(s => !DEFAULT_SUPPLIERS.find(d => d.id === s.id))
   };
 
