@@ -2872,6 +2872,19 @@ function addToInventory(productName,qty,supplier,shipmentId,poId,expiry){
     else{ inventory[key].lots.push({expiry,qty,addedDate:new Date().toISOString().split('T')[0]}); }
     inventory[key].lots.sort((a,b)=>a.expiry.localeCompare(b.expiry));
   }
+  // 入出庫履歴に入庫記録を追加
+  dispatchCounter=(dispatchCounter||0)+1;
+  dispatches.unshift({
+    id:'DC-'+dispatchCounter,
+    date:new Date().toISOString().split('T')[0],
+    product:productName,
+    qty,
+    type:'in',
+    destination:'',
+    clinic:'',
+    notes:`輸入ID: ${shipmentId||''}${expiry?' / 消費期限: '+expiry:''}`,
+    _savedAt:Date.now()
+  });
 }
 
 function getCatForProduct(name){
@@ -4201,21 +4214,10 @@ function mobileMarkStocked(impId){
   imp.status='stocked';
   imp.arrived=new Date().toISOString().slice(0,10);
   imp.items.forEach(item=>{
-    const key=item.name;
-    if(!inventory[key]){
-      inventory[key]={name:item.name,cat:'—',supplier:imp.supplierName||'',onHand:0,onOrder:0,inTransit:0,totalReceived:0,totalDispatched:0,lowAlert:5,lots:[]};
-    }
     const itemLots=item.lots&&item.lots.length?item.lots:[{qty:item.shippedQty||item.qty||1,expiry:item.expiry||''}];
-    const totalQty=itemLots.reduce((s,l)=>s+(parseInt(l.qty)||0),0);
-    inventory[key].onHand+=totalQty;
-    inventory[key].totalReceived+=totalQty;
-    inventory[key].lots=inventory[key].lots||[];
     itemLots.forEach(lot=>{
-      if(lot.expiry) inventory[key].lots.push({qty:parseInt(lot.qty)||1,expiry:lot.expiry,date:imp.arrived});
+      addToInventory(item.name, parseInt(lot.qty)||1, imp.supplierName||'', impId, imp.poId||'', lot.expiry||null);
     });
-    dispatchCounter=(dispatchCounter||0)+1;
-    const lotSummary=itemLots.map(l=>`${l.qty}個/${l.expiry||'期限未入力'}`).join('・');
-    dispatches.unshift({id:'DC-'+dispatchCounter,date:imp.arrived,product:item.name,qty:totalQty,type:'in',destination:'',clinic:'',notes:`輸入ID: ${impId} / ${lotSummary}`,_savedAt:Date.now()});
   });
 
   saveToStorage();
