@@ -3963,21 +3963,37 @@ async function parseAwbPdf(event) {
 
     console.log('Total extracted text chars:', pdfText.length);
 
-    if (!pdfText.trim()) {
-      throw new Error('PDFからテキストを抽出できませんでした。このPDFはスキャン画像の可能性があります。');
+    // テキストが少ない場合はCanvas経由で画像として送る
+    let messageContent;
+    if (pdfText.trim().length < 50) {
+      // PDFを画像に変換
+      console.log('Switching to image mode...');
+      const arrayBuffer2 = await file.arrayBuffer();
+      const pdf2 = await pdfjsLib.getDocument({ data: arrayBuffer2 }).promise;
+      const page2 = await pdf2.getPage(1);
+      const viewport = page2.getViewport({ scale: 1.5 });
+      const canvas = document.createElement('canvas');
+      canvas.width = viewport.width;
+      canvas.height = viewport.height;
+      const ctx = canvas.getContext('2d');
+      await page2.render({ canvasContext: ctx, viewport }).promise;
+      const imageBase64 = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
+      messageContent = [
+        { type: 'image', source: { type: 'base64', media_type: 'image/jpeg', data: imageBase64 } },
+        { type: 'text', text: 'このAWB画像から情報を抽出してJSONのみで返してください。形式: {"carrier":"DHL or FedEx","tracking":"追跡番号","shipper":"送り主の会社名","shipper_country":"送り主の国","consignee":"受取人の会社名","pieces":個数または1,"weight":"重量","eta":"YYYY-MM-DD形式またはnull","description":"貨物内容","hawb":"HAWB番号またはnull"}' }
+      ];
+    } else {
+      messageContent = `以下はDHLまたはFedExのAWBから抽出したテキストです。JSONのみで返してください。\n\nテキスト:\n${pdfText.slice(0,3000)}\n\n形式: {"carrier":"DHL or FedEx","tracking":"追跡番号","shipper":"送り主","shipper_country":"国","consignee":"受取人","pieces":個数,"weight":"重量","eta":"YYYY-MM-DDまたはnull","description":"貨物内容","hawb":"番号またはnull"}`;
     }
 
-    // Step2: Claude APIにテキストを送って解析
+    // Step2: Claude APIで解析
     const response = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         model: 'claude-sonnet-4-20250514',
         max_tokens: 1000,
-        messages: [{
-          role: 'user',
-          content: `以下はDHLまたはFedExのAWB（航空貨物運送状）のPDFから抽出したテキストです。必要な情報をJSONのみで返してください。他のテキストは一切含めないでください。\n\nテキスト:\n${pdfText.slice(0, 3000)}\n\n返すJSONの形式:\n{"carrier":"DHL"または"FedEx","tracking":"追跡番号","shipper":"送り主の会社名","shipper_country":"送り主の国","consignee":"受取人の会社名","pieces":個数,"weight":"重量","eta":"YYYY-MM-DD形式またはnull","description":"貨物内容","hawb":"HAWB番号またはnull"}`
-        }]
+        messages: [{ role: 'user', content: messageContent }]
       })
     });
 
