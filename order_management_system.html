@@ -4240,9 +4240,17 @@ function saveToStorage() {
   try { localStorage.setItem(LS_KEY, JSON.stringify(data)); } catch(e) {}
 
   // クラウドには軽量データのみ送る
-  // suppliers: DEFAULT_SUPPLIERSから復元可能なので除外
-  // pendingList/pendingMonths: CSVから再読み込みするので除外
-  const cloudData = { orders, remittances, imports, inventory, dispatches,
+  // PDFデータ(Base64)は除外してサイズを削減
+  const stripPdf = obj => {
+    const r = {...obj};
+    delete r.invoice; delete r.awb; delete r.yakuji; delete r.remitDoc;
+    return r;
+  };
+  const cloudData = {
+    orders: orders.map(o => stripPdf(o)),
+    remittances: remittances.map(r => stripPdf(r)),
+    imports: imports.map(i => stripPdf(i)),
+    inventory, dispatches,
     orderCounter, importCounter, dispatchCounter, idCounter, senderInfo,
     _savedAt: data._savedAt,
     customSuppliers: suppliers.filter(s => !DEFAULT_SUPPLIERS.find(d => d.id === s.id))
