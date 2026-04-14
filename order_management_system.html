@@ -68,6 +68,10 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
   display:flex;
   gap:0;
   overflow-x:auto;
+  position:sticky;
+  top:58px;
+  z-index:49;
+  box-shadow:0 2px 8px rgba(0,0,0,0.06);
 }
 .tab{
   padding:14px 20px;
@@ -152,17 +156,19 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 .scroll-table{max-height:460px;overflow-y:auto}
 table{width:100%;border-collapse:collapse;font-size:15px}
 thead th{
-  text-align:left;padding:10px 14px;
-  background:var(--bg);
-  color:#333;
-  font-weight:500;
+  text-align:left;padding:11px 16px;
+  background:#1a2332;
+  color:rgba(255,255,255,0.75);
+  font-weight:700;
   font-size:11px;
-  letter-spacing:0.04em;
+  letter-spacing:0.07em;
   text-transform:uppercase;
-  border-bottom:1.5px solid var(--border);
+  border-bottom:none;
   position:sticky;top:0;z-index:1;
 }
-tbody td{padding:10px 14px;border-bottom:1px solid var(--border-light);vertical-align:middle;color:var(--text)}
+tbody td{padding:12px 16px;border-bottom:1px solid var(--border-light);vertical-align:middle;color:var(--text)}
+tbody tr:nth-child(even) td{background:#f8f9fc}
+tbody tr:hover td{background:#fff3e8 !important}
 tbody tr:last-child td{border-bottom:none}
 tbody tr:hover td{background:#fafbfc}
 
@@ -460,6 +466,7 @@ tbody tr:hover td{background:#fafbfc}
   <div class="tab" onclick="showTab('history')">📄 発注履歴</div>
   <div class="tab" onclick="showTab('import')">🚢 輸入管理</div>
   <div class="tab" onclick="showTab('inventory')">📦 在庫管理</div>
+  <div class="tab" onclick="showTab('stock-history')">📋 入出庫履歴</div>
   <div class="tab" onclick="showTab('remittance')">💸 送金管理</div>
   <div class="tab" onclick="showTab('master')">⚙️ マスタ管理</div>
   <div class="tab" id="tab-expiry-nav" onclick="showTab('expiry')">🔴 期限アラート</div>
@@ -744,6 +751,51 @@ tbody tr:hover td{background:#fafbfc}
 </div>
 
 <!-- Inventory tab -->
+<!-- 入出庫履歴タブ -->
+<div id="tab-stock-history" class="screen">
+  <div class="section-head">
+    <h3>入出庫履歴</h3>
+  </div>
+
+  <!-- タブボタン -->
+  <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:20px">
+    <button id="sh-tab-in" onclick="switchStockHistTab('in')"
+      style="padding:11px 28px;font-size:14px;font-weight:700;border:none;border-bottom:3px solid var(--accent);background:none;color:var(--accent);cursor:pointer;font-family:inherit;margin-bottom:-2px">
+      📥 入庫履歴
+    </button>
+    <button id="sh-tab-out" onclick="switchStockHistTab('out')"
+      style="padding:11px 28px;font-size:14px;font-weight:500;border:none;border-bottom:3px solid transparent;background:none;color:var(--text-hint);cursor:pointer;font-family:inherit;margin-bottom:-2px">
+      📤 出庫履歴
+    </button>
+  </div>
+
+  <!-- 入庫履歴 -->
+  <div id="sh-section-in">
+    <div class="desktop-table table-wrap">
+      <table>
+        <thead><tr>
+          <th>日付</th><th>商品名</th><th>種別</th><th>数量</th><th>備考</th>
+        </tr></thead>
+        <tbody id="sh-inbound-tbody"></tbody>
+      </table>
+    </div>
+    <div class="mobile-cards" id="sh-inbound-cards"></div>
+  </div>
+
+  <!-- 出庫履歴 -->
+  <div id="sh-section-out" style="display:none">
+    <div class="desktop-table table-wrap">
+      <table>
+        <thead><tr>
+          <th>日付</th><th>商品名</th><th>クリニック・届け先</th><th>数量</th><th>備考</th><th style="width:120px">操作</th>
+        </tr></thead>
+        <tbody id="sh-dispatch-tbody"></tbody>
+      </table>
+    </div>
+    <div class="mobile-cards" id="sh-dispatch-cards"></div>
+  </div>
+</div>
+
 <div id="tab-inventory" class="screen">
   <div class="section-head">
     <h3>在庫管理</h3>
@@ -772,42 +824,6 @@ tbody tr:hover td{background:#fafbfc}
     <div class="mobile-cards" id="inventory-cards"></div>
   </div>
 
-  <!-- 入庫・出庫履歴タブ -->
-  <div style="margin-top:32px">
-    <!-- タブボタン -->
-    <div style="display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:0">
-      <button id="hist-tab-in" onclick="switchHistTab('in')"
-        style="padding:10px 24px;font-size:14px;font-weight:600;border:none;border-bottom:3px solid var(--accent);background:none;color:var(--accent);cursor:pointer;font-family:inherit;margin-bottom:-2px">
-        📥 入庫履歴
-      </button>
-      <button id="hist-tab-out" onclick="switchHistTab('out')"
-        style="padding:10px 24px;font-size:14px;font-weight:500;border:none;border-bottom:3px solid transparent;background:none;color:#888;cursor:pointer;font-family:inherit;margin-bottom:-2px">
-        📤 出庫履歴
-      </button>
-    </div>
-
-    <!-- 入庫履歴 -->
-    <div id="hist-section-in" style="padding-top:16px">
-      <div class="desktop-table table-wrap">
-        <table>
-          <thead><tr><th>日付</th><th>商品名</th><th>種別</th><th>数量</th><th>備考</th></tr></thead>
-          <tbody id="inbound-tbody"></tbody>
-        </table>
-      </div>
-      <div class="mobile-cards" id="inbound-cards"></div>
-    </div>
-
-    <!-- 出庫履歴 -->
-    <div id="hist-section-out" style="display:none;padding-top:16px">
-      <div class="desktop-table table-wrap">
-        <table>
-          <thead><tr><th>日付</th><th>商品名</th><th>クリニック・届け先</th><th>数量</th><th>備考</th><th style="width:120px">操作</th></tr></thead>
-          <tbody id="dispatch-tbody"></tbody>
-        </table>
-      </div>
-      <div class="mobile-cards" id="dispatch-cards"></div>
-    </div>
-  </div>
 </div>
 
 <!-- Import Modal -->
@@ -1530,7 +1546,7 @@ function uid(){return 'u'+(++idCounter)}
 function showTab(t){
   document.querySelectorAll('.tab').forEach(el=>el.classList.remove('active'));
   document.querySelectorAll('.screen').forEach(el=>el.classList.remove('active'));
-  const tabs=['pending','order','history','import','inventory','remittance','master','expiry'];
+  const tabs=['pending','order','history','import','inventory','stock-history','remittance','master','expiry'];
   const idx=tabs.indexOf(t);
   if(idx>=0)document.querySelectorAll('.tab')[idx].classList.add('active');
   document.getElementById('tab-'+t).classList.add('active');
@@ -1551,6 +1567,7 @@ function showTab(t){
   }
   if(t==='import')renderImport();
   if(t==='inventory'){renderInventory();renderInbound();}
+  if(t==='stock-history'){renderStockHistory();}
 }
 
 /* ===== 発注前リスト ===== */
@@ -2333,6 +2350,10 @@ function printOrder(id, showPrice=true){
     table{width:100%;border-collapse:collapse;margin-top:4px}
     th{text-align:left;padding:9px 12px;background:#f5f5f5;font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:#555;border-bottom:2px solid #ddd}
     td{padding:13px 16px;border-bottom:1px solid #f0f0f0;font-size:13px}
+tbody tr:nth-child(even) td{background:#f8f9fc}
+tr:hover td{background:#fff3e8 !important}
+#pending-tbody tr:nth-child(even) td{background:#f8f9fc}
+#pending-tbody tr:hover td{background:#fff3e8 !important}
     tfoot td{font-weight:700;border-top:2px solid #1a1a1a;border-bottom:none;font-size:14px;padding-top:12px}
     .total{color:#1D9E75}
     .footer{margin-top:32px;padding-top:16px;border-top:1px solid #eee;font-size:10px;color:#bbb;text-align:center}
@@ -3144,54 +3165,111 @@ function deleteDispatch(id){
   renderInventory();saveToStorage();
 }
 
-function switchHistTab(tab){
-  const inSection  = document.getElementById('hist-section-in');
-  const outSection = document.getElementById('hist-section-out');
-  const inBtn  = document.getElementById('hist-tab-in');
-  const outBtn = document.getElementById('hist-tab-out');
-  if(!inSection || !outSection) return;
+function switchStockHistTab(tab){
+  const inSec  = document.getElementById('sh-section-in');
+  const outSec = document.getElementById('sh-section-out');
+  const inBtn  = document.getElementById('sh-tab-in');
+  const outBtn = document.getElementById('sh-tab-out');
+  if(!inSec||!outSec) return;
   if(tab==='in'){
-    inSection.style.display='block'; outSection.style.display='none';
-    inBtn.style.borderBottomColor='var(--accent)'; inBtn.style.color='var(--accent)'; inBtn.style.fontWeight='600';
-    outBtn.style.borderBottomColor='transparent'; outBtn.style.color='#888'; outBtn.style.fontWeight='500';
-    renderInbound();
+    inSec.style.display='block'; outSec.style.display='none';
+    inBtn.style.cssText  = 'padding:11px 28px;font-size:14px;font-weight:700;border:none;border-bottom:3px solid var(--accent);background:none;color:var(--accent);cursor:pointer;font-family:inherit;margin-bottom:-2px';
+    outBtn.style.cssText = 'padding:11px 28px;font-size:14px;font-weight:500;border:none;border-bottom:3px solid transparent;background:none;color:var(--text-hint);cursor:pointer;font-family:inherit;margin-bottom:-2px';
   } else {
-    inSection.style.display='none'; outSection.style.display='block';
-    outBtn.style.borderBottomColor='var(--accent)'; outBtn.style.color='var(--accent)'; outBtn.style.fontWeight='600';
-    inBtn.style.borderBottomColor='transparent'; inBtn.style.color='#888'; inBtn.style.fontWeight='500';
+    inSec.style.display='none'; outSec.style.display='block';
+    outBtn.style.cssText = 'padding:11px 28px;font-size:14px;font-weight:700;border:none;border-bottom:3px solid var(--accent);background:none;color:var(--accent);cursor:pointer;font-family:inherit;margin-bottom:-2px';
+    inBtn.style.cssText  = 'padding:11px 28px;font-size:14px;font-weight:500;border:none;border-bottom:3px solid transparent;background:none;color:var(--text-hint);cursor:pointer;font-family:inherit;margin-bottom:-2px';
   }
 }
 
-function renderInbound(){
-  const tbody = document.getElementById('inbound-tbody');
-  const cards = document.getElementById('inbound-cards');
-  // 入庫記録 = dispatches の type==='in' + 輸入管理の在庫化記録
-  const inRecords = dispatches.filter(d => d.type==='in' || d.type==='adj');
+function renderStockHistory(){
+  switchStockHistTab('in'); // デフォルトは入庫タブ
+  renderStockInbound();
+}
+
+function renderStockInbound(){
+  const tbody = document.getElementById('sh-inbound-tbody');
+  const cards = document.getElementById('sh-inbound-cards');
   if(!tbody) return;
+
+  // 入庫記録 = dispatches の type==='in' または 'adj'
+  const inRecords = [...dispatches].filter(d => d.type==='in'||d.type==='adj').sort((a,b)=>b.date.localeCompare(a.date));
+
   if(!inRecords.length){
-    tbody.innerHTML='<tr><td colspan="5" class="empty">入庫記録がありません</td></tr>';
+    tbody.innerHTML='<tr><td colspan="5" class="empty">入庫記録がありません<br><small>在庫に直接追加した記録がここに表示されます</small></td></tr>';
     if(cards) cards.innerHTML='<div class="m-empty">入庫記録がありません</div>';
     return;
   }
+
   tbody.innerHTML = inRecords.map(d=>`<tr style="background:#f0fdf4">
-    <td style="font-size:13px">${d.date}</td>
-    <td style="font-size:13px;font-weight:500">${d.product}</td>
-    <td style="font-size:13px;color:#15803d">${d.type==='adj'?'📊 在庫調整':'📥 直接入庫'}</td>
-    <td style="font-family:'DM Mono',monospace;font-weight:600;color:#15803d">+${Math.abs(d.qty)}</td>
-    <td style="font-size:13px;color:#555">${d.notes||'—'}</td>
+    <td style="font-size:13px;color:var(--text-hint)">${d.date}</td>
+    <td style="font-size:14px;font-weight:600">${d.product}</td>
+    <td><span style="background:#dcfce7;color:#15803d;padding:3px 10px;border-radius:50px;font-size:11px;font-weight:600">${d.type==='adj'?'在庫調整':'直接入庫'}</span></td>
+    <td style="font-family:'DM Mono',monospace;font-weight:700;font-size:16px;color:#15803d">+${Math.abs(d.qty)}</td>
+    <td style="font-size:13px;color:var(--text-hint)">${d.notes||'—'}</td>
   </tr>`).join('');
+
   if(cards) cards.innerHTML = inRecords.map(d=>`
     <div class="m-card" style="background:#f0fdf4;border-color:#86efac">
       <div class="m-card-header">
         <div>
-          <div class="m-card-title" style="font-size:13px">${d.product}</div>
+          <div class="m-card-title">${d.product}</div>
           <div class="m-card-sub">${d.date} · ${d.type==='adj'?'在庫調整':'直接入庫'}</div>
         </div>
-        <div style="font-size:20px;font-weight:600;color:#15803d">+${Math.abs(d.qty)}</div>
+        <div style="font-size:22px;font-weight:700;color:#15803d">+${Math.abs(d.qty)}</div>
       </div>
       ${d.notes?`<div style="font-size:12px;color:#555;margin-top:6px">${d.notes}</div>`:''}
     </div>`).join('');
+
+  // 出庫履歴もセット
+  renderStockOutbound();
 }
+
+function renderStockOutbound(){
+  const tbody = document.getElementById('sh-dispatch-tbody');
+  const cards = document.getElementById('sh-dispatch-cards');
+  if(!tbody) return;
+
+  const outRecords = [...dispatches].filter(d => d.type!=='in'&&d.type!=='adj').sort((a,b)=>b.date.localeCompare(a.date));
+
+  if(!outRecords.length){
+    tbody.innerHTML='<tr><td colspan="6" class="empty">出庫記録がありません</td></tr>';
+    if(cards) cards.innerHTML='<div class="m-empty">出庫記録がありません</div>';
+    return;
+  }
+
+  tbody.innerHTML = outRecords.map(d=>`<tr>
+    <td style="font-size:13px;color:var(--text-hint)">${d.date}</td>
+    <td style="font-size:14px;font-weight:600">${d.product}</td>
+    <td style="font-size:13px;color:var(--accent)">${d.destination||'—'}</td>
+    <td style="font-family:'DM Mono',monospace;font-weight:700;font-size:16px;color:var(--danger)">−${Math.abs(d.qty)}</td>
+    <td style="font-size:13px;color:var(--text-hint)">${d.notes||'—'}</td>
+    <td style="text-align:center;white-space:nowrap">
+      <button class="btn sm" onclick="openEditDispatchModal('${d.id}')">編集</button>
+      <button class="btn sm danger" onclick="deleteDispatch('${d.id}')">削除</button>
+    </td>
+  </tr>`).join('');
+
+  if(cards) cards.innerHTML = outRecords.map(d=>`
+    <div class="m-card">
+      <div class="m-card-header">
+        <div>
+          <div class="m-card-title">${d.product}</div>
+          <div class="m-card-sub">${d.date} · ${d.destination||''}</div>
+        </div>
+        <div style="font-size:22px;font-weight:700;color:var(--danger)">−${Math.abs(d.qty)}</div>
+      </div>
+      ${d.notes?`<div style="font-size:12px;color:#555;margin-top:6px">${d.notes}</div>`:''}
+      <div style="margin-top:10px;display:flex;gap:8px">
+        <button class="btn sm" onclick="openEditDispatchModal('${d.id}')">編集</button>
+        <button class="btn sm danger" onclick="deleteDispatch('${d.id}')">削除</button>
+      </div>
+    </div>`).join('');
+}
+
+function switchHistTab(tab){switchStockHistTab(tab);}
+
+function renderInbound(){renderStockInbound();}
 
 function setAlert(key,val){if(inventory[key])inventory[key].lowAlert=parseInt(val)||0;renderInventory();}
 
@@ -3633,7 +3711,7 @@ function renderInventory(){
     sortedCats.forEach(cat=>{
       const catKeys=grouped[cat];
       const catTotal=catKeys.reduce((s,k)=>s+inventory[k].onHand,0);
-      allRows+=`<tr style="background:#f5f5f5;border-top:2px solid #e0e0e0"><td colspan="11" style="padding:10px 14px;font-size:12px;font-weight:700;letter-spacing:0.05em;text-transform:uppercase;color:#444"><span style="${getCatStyle(cat)};padding:3px 10px;border-radius:4px">${cat}</span><span style="font-size:12px;color:#888;margin-left:10px;font-weight:400">${catKeys.length}種 · 合計 ${catTotal}個</span></td></tr>`;
+      allRows+=`<tr style="background:linear-gradient(90deg,#1a2332,#2d3f55);border-top:3px solid var(--accent)"><td colspan="11" style="padding:11px 16px"><div style="display:flex;align-items:center;gap:10px"><span style="${getCatStyle(cat)};padding:4px 12px;border-radius:50px;font-size:12px;font-weight:700">${cat}</span><span style="font-size:12px;color:rgba(255,255,255,0.7)">${catKeys.length}種 · 合計 <strong style="color:#fff">${catTotal}</strong>個</span></div></td></tr>`;
       catKeys.forEach(k=>{
         const inv=inventory[k];
         const isLow=inv.onHand>0&&inv.onHand<=inv.lowAlert,isOut=inv.onHand===0;
@@ -4422,7 +4500,6 @@ function renderAll() {
   renderInventory();
   renderRemitList();
   renderMaster();
-  // pendingMonthsが復元されていればラベルも復元
   if(pendingMonths && pendingMonths.length){
     const labelShorts = pendingMonths.map(ym => {
       const [y, m] = ym.split('-');
