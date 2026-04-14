@@ -4238,11 +4238,20 @@ function saveToStorage() {
     pendingList, pendingMonths, _savedAt: Date.now() };
   // まずLocalStorageに即時保存（オフライン時もデータを守る）
   try { localStorage.setItem(LS_KEY, JSON.stringify(data)); } catch(e) {}
+
+  // クラウドにはsuppliersを除いた軽量データを送る（suppliersはDEFAULT_SUPPLIERSから復元可能）
+  const cloudData = { orders, remittances, imports, inventory, dispatches,
+    orderCounter, importCounter, dispatchCounter, idCounter, senderInfo,
+    pendingList, pendingMonths, _savedAt: data._savedAt,
+    // suppliersのうちデフォルト以外（ユーザーが追加した仕入れ先）だけ保存
+    customSuppliers: suppliers.filter(s => !DEFAULT_SUPPLIERS.find(d => d.id === s.id))
+  };
+
   // Google Sheetsへも非同期保存
   showIndicator('⏳ 保存中...', '#999');
   fetch(GAS_URL, {
     method: 'POST',
-    body: JSON.stringify({ action: 'save', data })
+    body: JSON.stringify({ action: 'save', data: cloudData })
   })
   .then(r => r.json())
   .then(res => {
@@ -4314,6 +4323,15 @@ function applyData(d) {
   if (d.senderInfo) senderInfo = {...senderInfo, ...d.senderInfo};
   if (d.pendingList && d.pendingList.length) pendingList = d.pendingList;
   if (d.pendingMonths && d.pendingMonths.length) pendingMonths = d.pendingMonths;
+  // カスタム仕入れ先を復元（クラウドデータの場合）
+  if (d.customSuppliers && d.customSuppliers.length) {
+    // DEFAULT_SUPPLIERSにカスタム仕入れ先を追加
+    const base = JSON.parse(JSON.stringify(DEFAULT_SUPPLIERS));
+    d.customSuppliers.forEach(cs => {
+      if (!base.find(s => s.id === cs.id)) base.push(cs);
+    });
+    suppliers = base;
+  }
 }
 
 function renderAll() {
