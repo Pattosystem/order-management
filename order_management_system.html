@@ -190,12 +190,26 @@ tbody tr:hover td{background:#fafbfc !important}
 /* ===== INVENTORY CATEGORY HEADER ===== */
 .cat-header-row td{background:var(--navy) !important;padding:10px 16px !important;border-top:none !important}
 
-/* ===== IMPORT CARDS ===== */
-.import-lane{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:20px}
-.import-lane-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);padding:14px;box-shadow:var(--shadow)}
-.import-lane-title{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-sub);margin-bottom:10px}
-.import-item{background:var(--bg);border-radius:var(--r);padding:10px 12px;margin-bottom:8px;font-size:13px;font-weight:600;color:var(--text)}
-.import-item-sub{font-size:11px;color:var(--text-sub);margin-top:3px;font-weight:400}
+/* ===== IMPORT PIPELINE ===== */
+.import-pipeline{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;margin-bottom:24px}
+.pipeline-col{background:var(--bg);border-radius:var(--r-lg);padding:12px;min-height:80px}
+.pipeline-col h4{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-sub);margin-bottom:10px;display:flex;align-items:center;gap:6px;padding-bottom:8px;border-bottom:1px solid var(--border)}
+.pipeline-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.dot-ordered{background:#94a3b8}
+.dot-shipped{background:#3b82f6}
+.dot-customs{background:#f59e0b}
+.dot-arrived{background:#8b5cf6}
+.dot-stocked{background:#22c55e}
+.pipeline-card{
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--r);
+  padding:10px 12px;margin-bottom:6px;cursor:pointer;transition:all 0.15s;
+  box-shadow:var(--shadow);
+}
+.pipeline-card:hover{border-color:var(--orange);box-shadow:0 0 0 2px rgba(249,115,22,0.15)}
+.pc-supplier{font-size:13px;font-weight:700;color:var(--text);margin-bottom:3px}
+.pc-tracking{font-size:11px;font-family:'DM Mono',monospace;color:var(--text-sub);background:var(--bg);padding:2px 6px;border-radius:4px;display:inline-block;margin-bottom:3px;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pc-eta{font-size:11px;color:var(--orange);font-weight:600}
+.pipeline-count{font-size:13px;color:var(--text-sub);text-align:center;padding:8px}
 
 /* ===== MISC ===== */
 .header-icon{width:30px;height:30px;background:var(--orange);border-radius:var(--r);display:flex;align-items:center;justify-content:center;font-size:14px}
