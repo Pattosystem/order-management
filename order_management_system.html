@@ -523,9 +523,13 @@ tbody tr:hover td{background:#fafbfc !important}
 <div id="tab-import" class="screen">
   <div class="section-head">
     <h3>輸入管理</h3>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">
+    <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
       <button class="btn" onclick="printTab('import')">🖨️ PDF印刷</button>
       <button class="btn" onclick="exportTabExcel('import')" style="border-color:var(--navy);color:var(--navy)">📊 Excel出力</button>
+      <label class="btn" style="background:#7c3aed;color:#fff;border-color:#7c3aed;cursor:pointer" title="AWBのPDFを読み込んで自動登録">
+        🤖 AWBを読み込む
+        <input type="file" accept=".pdf" onchange="parseAwbPdf(event)" style="display:none">
+      </label>
       <button class="btn primary" onclick="openImportModal()">＋ 輸入登録</button>
     </div>
   </div>
@@ -727,6 +731,18 @@ tbody tr:hover td{background:#fafbfc !important}
   <div id="cdm-content"></div>
   <div class="mactions">
     <button class="btn primary" onclick="closeModal('clinic-detail-modal')">閉じる</button>
+  </div>
+</div>
+</div>
+
+<!-- AWB自動登録確認モーダル -->
+<div class="modal-bg" id="awb-confirm-modal">
+<div class="modal" style="max-width:560px">
+  <h3>🤖 AWB自動解析結果</h3>
+  <div id="awb-confirm-content"></div>
+  <div class="mactions">
+    <button class="btn" onclick="closeModal('awb-confirm-modal')">キャンセル</button>
+    <button class="btn primary" onclick="confirmAwbRegister()">✓ この内容で登録する</button>
   </div>
 </div>
 </div>
@@ -3881,7 +3897,273 @@ function openInvoiceForOrder(orderId) {
 }
 
 /* ===== Excel → 発注前リスト 読み込み ===== */
-/* ===== CSV読み込み（Bcart受注データ）===== */
+/* ===== AWB PDF 自動解析 ===== */
+let _awbParsedData = null;
+
+async function parseAwbPdf(event) {
+  const file = event.target.files[0];
+  event.target.value = '';
+  if (!file) return;
+
+  // ローディング表示
+  const content = document.getElementById('awb-confirm-content');
+  _awbItems = [];
+  content.innerHTML = `
+    <div style="text-align:center;padding:32px">
+      <div style="font-size:32px;margin-bottom:12px">🤖</div>
+      <div style="font-size:15px;font-weight:600;color:var(--text);margin-bottom:6px">AWBを解析中...</div>
+      <div style="font-size:13px;color:var(--text-sub)">DHL / FedEx のフォーマットを自動認識しています</div>
+    </div>`;
+  document.getElementById('awb-confirm-modal').classList.add('open');
+
+  try {
+    // PDFをBase64に変換
+    const base64 = await new Promise((res, rej) => {
+      const reader = new FileReader();
+      reader.onload = () => res(reader.result.split(',')[1]);
+      reader.onerror = rej;
+      reader.readAsDataURL(file);
+    });
+
+    // Claude APIでPDF解析
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 1000,
+        messages: [{
+          role: 'user',
+          content: [
+            {
+              type: 'document',
+              source: { type: 'base64', media_type: 'application/pdf', data: base64 }
+            },
+            {
+              type: 'text',
+              text: `このAWB（航空貨物運送状）PDFから以下の情報を抽出してください。DHL or FedExのフォーマットです。
+必ずJSON形式のみで回答し、他のテキストは一切含めないでください。
+
+{
+  "carrier": "DHL" または "FedEx",
+  "tracking": "追跡番号（数字のみ）",
+  "shipper": "送り主の会社名",
+  "shipper_country": "送り主の国",
+  "consignee": "受取人の会社名",
+  "pieces": 個数（数値）,
+  "weight": "重量（kg）",
+  "eta": "配達予定日（YYYY-MM-DD形式、不明な場合はnull）",
+  "description": "貨物内容の説明",
+  "hawb": "HAWB番号（あれば）"
+}`
+            }
+          ]
+        }]
+      })
+    });
+
+    const data = await response.json();
+    const text = data.content?.[0]?.text || '';
+    const clean = text.replace(/```json|```/g, '').trim();
+    const parsed = JSON.parse(clean);
+    _awbParsedData = { ...parsed, fileName: file.name };
+
+    // 既存の輸入データと照合（追跡番号が既に登録されているか）
+    const existing = imports.find(i => i.tracking === parsed.tracking);
+
+    // 仕入れ先の自動マッチング
+    const matchedSupplier = suppliers.find(s =>
+      parsed.shipper && (
+        s.name.toLowerCase().includes(parsed.shipper.toLowerCase().slice(0,4)) ||
+        parsed.shipper.toLowerCase().includes(s.name.toLowerCase().slice(0,4))
+      )
+    );
+
+    content.innerHTML = `
+      <div style="margin-bottom:16px">
+        ${existing
+          ? `<div style="background:#fff7ed;border:1.5px solid #fed7aa;border-radius:var(--r);padding:10px 14px;margin-bottom:12px;font-size:13px;color:var(--amber)">
+              ⚠️ 追跡番号 <strong>${parsed.tracking}</strong> はすでに <strong>${existing.id}</strong> として登録されています
+             </div>`
+          : ''}
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+          ${field('運送業者', parsed.carrier||'—')}
+          ${field('追跡番号', parsed.tracking||'—', true)}
+          ${field('送り主', parsed.shipper||'—')}
+          ${field('送り主の国', parsed.shipper_country||'—')}
+          ${field('受取人', parsed.consignee||'—')}
+          ${field('個数', parsed.pieces ? parsed.pieces+'個' : '—')}
+          ${field('重量', parsed.weight ? parsed.weight+'kg' : '—')}
+          ${field('配達予定日 (ETA)', parsed.eta||'不明')}
+          ${field('貨物内容', parsed.description||'—')}
+          ${field('HAWB番号', parsed.hawb||'—')}
+        </div>
+        <div style="margin-top:14px;padding:10px 14px;background:var(--bg);border-radius:var(--r);font-size:13px">
+          <div style="font-weight:700;margin-bottom:6px;color:var(--text-sub);font-size:11px;text-transform:uppercase;letter-spacing:0.05em">仕入れ先マッチング</div>
+          <select id="awb-supplier-select" onchange="renderAwbItems()" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--r);font-size:14px;font-family:inherit;outline:none;background:var(--surface);color:var(--text)">
+            <option value="">— 仕入れ先を選択 —</option>
+            ${suppliers.map(s=>`<option value="${s.id}" ${matchedSupplier&&matchedSupplier.id===s.id?'selected':''}>${s.name}</option>`).join('')}
+          </select>
+        </div>
+
+        <div style="margin-top:16px">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+            <div style="font-size:13px;font-weight:700;color:var(--text)">📦 商品リスト</div>
+            <button onclick="awbAddItem()" style="padding:5px 14px;border-radius:var(--r-pill);border:1.5px solid var(--orange);background:none;color:var(--orange);font-size:12px;font-weight:700;cursor:pointer;font-family:inherit">＋ 商品を追加</button>
+          </div>
+          <div id="awb-items-list">
+            <div style="text-align:center;padding:16px;color:var(--text-sub);font-size:13px;background:var(--bg);border-radius:var(--r)">
+              商品を追加してください
+            </div>
+          </div>
+        </div>
+      </div>`;
+  } catch(err) {
+    content.innerHTML = `
+      <div style="text-align:center;padding:24px">
+        <div style="font-size:32px;margin-bottom:12px">⚠️</div>
+        <div style="font-size:15px;font-weight:600;color:var(--red);margin-bottom:8px">解析に失敗しました</div>
+        <div style="font-size:13px;color:var(--text-sub)">${err.message}</div>
+      </div>`;
+  }
+}
+
+function field(label, value, highlight=false) {
+  return `<div style="background:var(--bg);border-radius:var(--r);padding:10px 12px">
+    <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.04em;color:var(--text-sub);margin-bottom:4px">${label}</div>
+    <div style="font-size:${highlight?'16px':'14px'};font-weight:${highlight?'700':'500'};color:${highlight?'var(--orange)':'var(--text)'};font-family:${highlight?"'DM Mono',monospace":'inherit'}">${value}</div>
+  </div>`;
+}
+
+let _awbItems = []; // AWB商品リスト
+
+function awbAddItem() {
+  _awbItems.push({ name: '', qty: 1, lot: '', expiry: '' });
+  renderAwbItems();
+}
+
+function awbRemoveItem(idx) {
+  _awbItems.splice(idx, 1);
+  renderAwbItems();
+}
+
+function awbUpdateItem(idx, field, value) {
+  if (_awbItems[idx]) _awbItems[idx][field] = value;
+}
+
+function renderAwbItems() {
+  const container = document.getElementById('awb-items-list');
+  if (!container) return;
+  if (!_awbItems.length) {
+    container.innerHTML = `<div style="text-align:center;padding:16px;color:var(--text-sub);font-size:13px;background:var(--bg);border-radius:var(--r)">商品を追加してください</div>`;
+    return;
+  }
+
+  // 仕入れ先の商品リストを取得（選択中の仕入れ先）
+  const suppId = document.getElementById('awb-supplier-select')?.value;
+  const supp = suppliers.find(s => s.id === suppId);
+  const products = supp ? supp.products || [] : [];
+  const productOptions = products.map(p => `<option value="${p.name}">${p.name}</option>`).join('');
+
+  container.innerHTML = _awbItems.map((item, i) => `
+    <div style="background:var(--bg);border-radius:var(--r);padding:12px;margin-bottom:8px;border:1px solid var(--border)">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <div style="font-size:12px;font-weight:700;color:var(--text-sub)">商品 ${i+1}</div>
+        <button onclick="awbRemoveItem(${i})" style="padding:2px 10px;border-radius:var(--r-pill);border:1px solid #fecaca;background:none;color:var(--red);font-size:12px;cursor:pointer;font-family:inherit">削除</button>
+      </div>
+      <div style="display:grid;grid-template-columns:2fr 1fr;gap:8px;margin-bottom:8px">
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--text-sub);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.04em">商品名</div>
+          <input list="awb-product-list-${i}" value="${item.name}" placeholder="商品名を入力または選択"
+            oninput="awbUpdateItem(${i},'name',this.value)"
+            style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--r);font-size:13px;font-family:inherit;outline:none;background:var(--surface);color:var(--text)">
+          <datalist id="awb-product-list-${i}">${productOptions}</datalist>
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--text-sub);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.04em">数量</div>
+          <input type="number" value="${item.qty}" min="1"
+            oninput="awbUpdateItem(${i},'qty',parseInt(this.value)||1)"
+            style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--r);font-size:13px;font-family:inherit;outline:none;background:var(--surface);color:var(--text);text-align:center">
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--text-sub);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.04em">ロット番号</div>
+          <input value="${item.lot}" placeholder="例: LOT240101"
+            oninput="awbUpdateItem(${i},'lot',this.value)"
+            style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--r);font-size:13px;font-family:inherit;outline:none;background:var(--surface);color:var(--text)">
+        </div>
+        <div>
+          <div style="font-size:11px;font-weight:700;color:var(--text-sub);margin-bottom:4px;text-transform:uppercase;letter-spacing:0.04em">消費期限</div>
+          <input type="date" value="${item.expiry}"
+            onchange="awbUpdateItem(${i},'expiry',this.value)"
+            style="width:100%;padding:7px 10px;border:1.5px solid var(--border);border-radius:var(--r);font-size:13px;font-family:inherit;outline:none;background:var(--surface);color:var(--text)">
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function confirmAwbRegister() {
+  if (!_awbParsedData) return;
+  const d = _awbParsedData;
+  const suppId = document.getElementById('awb-supplier-select')?.value;
+  const supp = suppliers.find(s => s.id === suppId);
+
+  // 既存の輸入データと照合
+  const existing = imports.find(i => i.tracking === d.tracking);
+  if (existing) {
+    // 既存データのAWBファイルとステータスを更新
+    existing.status = 'shipped';
+    existing.tracking = d.tracking;
+    if (d.eta) existing.eta = d.eta;
+    closeModal('awb-confirm-modal');
+    renderImport();
+    saveToStorage();
+    alert(`✓ ${existing.id} のAWBを更新し、ステータスを「出荷済み」にしました`);
+    return;
+  }
+
+  // 商品リストを整形
+  const itemList = _awbItems.filter(item => item.name.trim()).map(item => ({
+    name: item.name.trim(),
+    qty: item.qty || 1,
+    lot: item.lot || '',
+    expiry: item.expiry || '',
+    shippedQty: item.qty || 1
+  }));
+
+  // 新規登録
+  importCounter = (importCounter || 3000) + 1;
+  const newId = 'SHP-' + importCounter;
+  imports.unshift({
+    id: newId,
+    supplierId: suppId || '',
+    supplierName: supp ? supp.name : (d.shipper || '—'),
+    poId: '',
+    carrier: d.carrier || '',
+    tracking: d.tracking || '',
+    eta: d.eta || '',
+    customs: 'pending',
+    arrived: '',
+    duties: 0,
+    status: 'shipped',
+    notes: d.description || '',
+    items: itemList,
+    awb: null,
+    yakuji: null,
+    invoice: null,
+  });
+
+  closeModal('awb-confirm-modal');
+  _awbParsedData = null;
+  _awbItems = [];
+  renderImport();
+  saveToStorage();
+  alert(`✓ ${newId} として登録しました（ステータス: 出荷済み${itemList.length?` / 商品${itemList.length}種`:''}）`);
+}
+
+/* ===== end AWB ===== */
+
 function loadCsvToPending(event) {
   const file = event.target.files[0];
   if (!file) return;
