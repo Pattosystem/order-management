@@ -159,19 +159,19 @@ body{font-family:'DM Sans',sans-serif;background:var(--bg);color:var(--text);fon
 .scroll-table{max-height:460px;overflow-y:auto}
 table{width:100%;border-collapse:collapse;font-size:14px}
 thead th{
-  text-align:left;padding:13px 18px;
-  background:#1a2332;
-  color:rgba(255,255,255,0.85);
+  text-align:left;padding:14px 18px;
+  background:#f4f6f9;
+  color:var(--text-hint);
   font-weight:700;
   font-size:12px;
-  letter-spacing:0.05em;
-  text-transform:uppercase;
-  border-bottom:none;
+  letter-spacing:0.04em;
+  text-transform:none;
+  border-bottom:2px solid var(--border);
   position:sticky;top:0;z-index:1;
   white-space:nowrap;
 }
 tbody td{padding:14px 18px;border-bottom:1px solid var(--border-light);vertical-align:middle;color:var(--text);font-size:14px}
-tbody tr:nth-child(even) td{background:#f8f9fc}
+tbody tr:nth-child(even) td{background:#fafbfc}
 tbody tr:hover td{background:#fff3e8 !important}
 tbody tr:last-child td{border-bottom:none}
 tbody tr:hover td{background:#fafbfc}
@@ -829,7 +829,7 @@ tbody tr:hover td{background:#fafbfc}
     </div>
     <div class="desktop-table table-wrap">
       <table>
-        <thead><tr><th>商品名</th><th>カテゴリ</th><th>仕入れ先</th><th>在庫数</th><th>発注中</th><th>輸送中</th><th>累計入荷</th><th>累計出庫</th><th>消費期限</th><th>アラート</th><th style="width:70px">操作</th></tr></thead>
+        <thead><tr><th style="min-width:200px">商品名</th><th>カテゴリ</th><th>在庫数</th><th>最小在庫</th><th>消費期限</th><th>状態</th><th style="min-width:160px">操作</th></tr></thead>
         <tbody id="inventory-tbody"></tbody>
       </table>
     </div>
@@ -2362,9 +2362,9 @@ function printOrder(id, showPrice=true){
     table{width:100%;border-collapse:collapse;margin-top:4px}
     th{text-align:left;padding:9px 12px;background:#f5f5f5;font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:#555;border-bottom:2px solid #ddd}
     td{padding:13px 16px;border-bottom:1px solid #f0f0f0;font-size:13px}
-tbody tr:nth-child(even) td{background:#f8f9fc}
+tbody tr:nth-child(even) td{background:#fafbfc}
 tr:hover td{background:#fff3e8 !important}
-#pending-tbody tr:nth-child(even) td{background:#f8f9fc}
+#pending-tbody tr:nth-child(even) td{background:#fafbfc}
 #pending-tbody tr:hover td{background:#fff3e8 !important}
     tfoot td{font-weight:700;border-top:2px solid #1a1a1a;border-bottom:none;font-size:14px;padding-top:12px}
     .total{color:#1D9E75}
@@ -3778,7 +3778,29 @@ function renderInventory(){
         const inv=inventory[k];
         const isLow=inv.onHand>0&&inv.onHand<=inv.lowAlert,isOut=inv.onHand===0;
         const expBadge=renderExpiryBadge(inv.lots);
-        allRows+=`<tr class="${isOut||isLow?'low-stock-row':''}"><td style="font-size:14px;font-weight:600;padding-left:20px;color:#1a2332">${inv.name}</td><td><span class="cat-label" style="${getCatStyle(inv.cat)}">${inv.cat}</span></td><td style="font-size:13px;color:#1a1a1a">${inv.supplier}</td><td style="font-family:'DM Mono',monospace;font-weight:700;font-size:18px;color:${isOut?'#dc2626':isLow?'#c2410c':'#1a2332'}">${inv.onHand}</td><td style="font-family:'DM Mono',monospace;font-size:13px;color:#333">${inv.onOrder}</td><td style="font-family:'DM Mono',monospace;font-size:13px;color:#1d4ed8">${inv.inTransit}</td><td style="font-family:'DM Mono',monospace;font-size:13px;color:#1a1a1a">${inv.totalReceived}</td><td style="font-family:'DM Mono',monospace;font-size:13px;color:#1a1a1a">${inv.totalDispatched}</td><td>${expBadge}</td><td>${isOut?'<span class="alert-badge alert-low">在庫切れ</span>':isLow?'<span class="alert-badge alert-order">残少</span>':'<span class="alert-badge alert-ok">在庫あり</span>'}<div style="margin-top:4px;display:flex;align-items:center;gap:4px"><span style="font-size:10px;color:#333">アラート ≤</span><input type="number" value="${inv.lowAlert}" min="0" style="width:44px;font-size:11px;padding:2px 5px;border:1.5px solid var(--border);border-radius:4px;font-family:'DM Mono',monospace;outline:none;background:var(--surface);color:var(--text)" onchange="setAlert('${k.replace(/'/g,"\\'")}',this.value)"></div></td><td style="text-align:center;white-space:nowrap"><button class="btn sm" onclick="openInventoryEditModal('${k.replace(/'/g,"\\'")}')">編集</button> <button class="btn sm danger" onclick="deleteInventoryItem('${k.replace(/'/g,"\\'")}')">削除</button></td></tr>`;
+        allRows+=`<tr class="${isOut||isLow?'low-stock-row':''}">
+          <td style="font-size:15px;font-weight:600;color:#1a2332;padding-left:24px">${inv.name}</td>
+          <td><span class="cat-label" style="${getCatStyle(inv.cat)};font-size:12px;padding:4px 12px">${inv.cat}</span></td>
+          <td style="font-size:18px;font-weight:700;color:${isOut?'#dc2626':isLow?'#c2410c':'#1a2332'};white-space:nowrap">${inv.onHand}<span style="font-size:13px;font-weight:400;color:var(--text-hint);margin-left:2px">個</span></td>
+          <td>
+            <input type="number" value="${inv.lowAlert}" min="0"
+              style="width:56px;font-size:14px;font-weight:500;padding:4px 8px;border:1.5px solid var(--border);border-radius:8px;font-family:'DM Mono',monospace;outline:none;background:var(--surface);color:var(--text);text-align:center"
+              onchange="setAlert('${k.replace(/'/g,"\\'")}',this.value)">
+          </td>
+          <td style="font-size:14px;color:${expBadge.includes('期限切れ')?'#dc2626':expBadge.includes('🚨')||expBadge.includes('⏰')?'#c2410c':'#15803d'}">${expBadge||'—'}</td>
+          <td>
+            ${isOut
+              ?'<span style="background:#fef2f2;color:#dc2626;padding:5px 14px;border-radius:50px;font-size:13px;font-weight:700;border:1.5px solid #fecaca">要補充</span>'
+              :isLow
+              ?'<span style="background:#fff7ed;color:#c2410c;padding:5px 14px;border-radius:50px;font-size:13px;font-weight:700;border:1.5px solid #fed7aa">注意</span>'
+              :'<span style="background:#f0fdf4;color:#15803d;padding:5px 14px;border-radius:50px;font-size:13px;font-weight:700;border:1.5px solid #bbf7d0">正常</span>'}
+          </td>
+          <td style="white-space:nowrap">
+            <button class="btn sm" style="background:var(--accent);color:#fff;border-color:var(--accent);margin-right:4px" onclick="openDispatchModal('${k.replace(/'/g,"\\'")}')">出庫</button>
+            <button class="btn sm" onclick="openInventoryEditModal('${k.replace(/'/g,"\\'")}')">編集</button>
+            <button class="btn sm danger" onclick="deleteInventoryItem('${k.replace(/'/g,"\\'")}')">削除</button>
+          </td>
+        </tr>`;
       });
     });
     tbody.innerHTML=allRows;
