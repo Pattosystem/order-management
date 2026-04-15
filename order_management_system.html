@@ -867,6 +867,19 @@ tbody tr:hover td{background:#fafbfc !important}
     </div>
   </div>
 
+  <!-- PDF添付 -->
+  <div style="margin-top:16px">
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:8px">📎 INVOICE PDF</div>
+    <div id="inv-pdf-preview" style="display:none;background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:var(--r);padding:10px 14px;margin-bottom:8px;display:flex;align-items:center;justify-content:space-between">
+      <span id="inv-pdf-name" style="font-size:13px;color:#0369a1;font-weight:600">—</span>
+      <button onclick="removeInvoicePdf()" style="background:none;border:none;cursor:pointer;color:var(--red);font-size:13px;padding:0">✕ 削除</button>
+    </div>
+    <label class="btn" style="cursor:pointer;width:100%;justify-content:center;border-style:dashed">
+      📄 PDFを添付
+      <input type="file" accept=".pdf" onchange="attachInvoicePdf(event)" style="display:none">
+    </label>
+  </div>
+
   <div class="mactions">
     <button class="btn" onclick="closeModal('invoice-modal')">キャンセル</button>
     <button class="btn primary" onclick="saveInvoice()">保存</button>
@@ -4116,10 +4129,12 @@ function openInvoiceForOrder(orderId) {
 /* ===== INVOICE管理 ===== */
 let _invoiceItems = [];
 let _invoiceAwbs = [];
+let _invoicePdfData = null; // {name, data(base64)}
 
 function openInvoiceModal(id){
   _invoiceItems = [];
   _invoiceAwbs = [];
+  _invoicePdfData = null;
   document.getElementById('edit-invoice-id').value = id||'';
   document.getElementById('invoice-modal-title').textContent = id ? '📄 INVOICE編集' : '📄 INVOICE登録';
 
@@ -4145,6 +4160,7 @@ function openInvoiceModal(id){
       poSel.value = inv.poId||'';
       _invoiceItems = JSON.parse(JSON.stringify(inv.items||[]));
       _invoiceAwbs = [...(inv.awbIds||[])];
+      if(inv.pdfData){ _invoicePdfData=inv.pdfData; showInvoicePdfPreview(inv.pdfData.name); }
     }
   } else {
     document.getElementById('inv-no').value = '';
@@ -4247,11 +4263,12 @@ function saveInvoice(){
   if(!supplierId){ alert('仕入れ先を選択してください'); return; }
 
   const items = _invoiceItems.filter(i=>i.name.trim());
+  const pdfData = _invoicePdfData || null;
 
   if(id){
     const existing = invoices.find(i=>i.id===id);
     if(existing){
-      Object.assign(existing,{invoiceNo,date,supplierId,supplierName:suppName,poId,amount,currency,items,awbIds:_invoiceAwbs,notes,_updatedAt:Date.now()});
+      Object.assign(existing,{invoiceNo,date,supplierId,supplierName:suppName,poId,amount,currency,items,awbIds:_invoiceAwbs,notes,pdfData,_updatedAt:Date.now()});
     }
   } else {
     invoiceCounter++;
@@ -4260,7 +4277,7 @@ function saveInvoice(){
       invoiceNo, date, supplierId, supplierName:suppName,
       poId, amount, currency, items,
       awbIds: _invoiceAwbs,
-      notes, _createdAt:Date.now()
+      notes, pdfData, _createdAt:Date.now()
     });
   }
 
@@ -4301,6 +4318,7 @@ function renderInvoiceList(){
           <div style="font-size:12px;color:var(--text-sub);margin-top:2px">${inv.supplierName} · ${inv.date}${inv.poId?' · PO: '+inv.poId:''}</div>
         </div>
         <div style="font-size:15px;font-weight:700;color:var(--text);font-family:'DM Mono',monospace;white-space:nowrap">${amountStr}</div>
+        ${inv.pdfData?`<button onclick="viewInvoicePdf('${inv.id}')" class="btn sm" style="border-color:#0ea5e9;color:#0ea5e9">📄 PDF</button>`:''}
         <button onclick="openInvoiceModal('${inv.id}')" class="btn sm">編集</button>
         <button onclick="deleteInvoice('${inv.id}')" class="btn sm danger">削除</button>
       </div>
@@ -4324,6 +4342,39 @@ function renderInvoiceList(){
       </div>
     </div>`;
   }).join('');
+}
+
+function attachInvoicePdf(event){
+  const file = event.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    _invoicePdfData = { name: file.name, data: e.target.result.split(',')[1], type: 'application/pdf' };
+    showInvoicePdfPreview(file.name);
+  };
+  reader.readAsDataURL(file);
+  event.target.value='';
+}
+
+function showInvoicePdfPreview(name){
+  const preview = document.getElementById('inv-pdf-preview');
+  const nameEl = document.getElementById('inv-pdf-name');
+  if(preview){ preview.style.display='flex'; }
+  if(nameEl){ nameEl.textContent = '📄 '+name; }
+}
+
+function removeInvoicePdf(){
+  _invoicePdfData = null;
+  const preview = document.getElementById('inv-pdf-preview');
+  if(preview) preview.style.display='none';
+}
+
+function viewInvoicePdf(id){
+  const inv = invoices.find(i=>i.id===id);
+  if(!inv||!inv.pdfData) return;
+  const blob = new Blob([Uint8Array.from(atob(inv.pdfData.data), c=>c.charCodeAt(0))], {type:'application/pdf'});
+  const url = URL.createObjectURL(blob);
+  window.open(url,'_blank');
 }
 
 /* ===== end INVOICE ===== */
@@ -5038,7 +5089,7 @@ function saveToStorage() {
     return r;
   };
   const cloudData = {
-    invoices,
+    invoices: invoices.map(i=>({...i, pdfData:undefined})),
     orders: orders.map(o => stripPdf(o)),
     remittances: remittances.map(r => stripPdf(r)),
     imports: imports.map(i => stripPdf(i)),
