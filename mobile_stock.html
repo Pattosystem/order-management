@@ -178,7 +178,54 @@ input[type="number"].field-input{text-align:center;font-family:'DM Mono',monospa
   border-radius:12px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;
 }
 
-/* トースト */
+/* 写真セクション */
+.photo-section{padding:14px 18px;border-bottom:1px solid #f0f2f5}
+.photo-section-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.photo-add-btn{
+  padding:7px 14px;border-radius:50px;
+  border:2px solid #0ea5e9;background:none;
+  color:#0ea5e9;font-size:13px;font-weight:700;cursor:pointer;
+  display:inline-block;
+}
+.photo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.photo-empty{
+  grid-column:1/-1;padding:14px;
+  text-align:center;color:#6b7a8d;font-size:13px;
+  background:#f8f9fc;border-radius:10px;
+  border:2px dashed #e4e8ee;
+}
+.photo-thumb-wrap{position:relative;aspect-ratio:1;border-radius:10px;overflow:hidden}
+.photo-thumb{width:100%;height:100%;object-fit:cover;display:block;border-radius:10px}
+.photo-delete-btn{
+  position:absolute;top:4px;right:4px;
+  width:24px;height:24px;border-radius:50%;
+  background:rgba(0,0,0,0.55);border:none;
+  color:#fff;font-size:13px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  line-height:1;
+}
+/* フォトビューア */
+.photo-viewer{
+  position:fixed;inset:0;background:rgba(0,0,0,0.92);
+  z-index:300;display:none;flex-direction:column;
+  align-items:center;justify-content:center;
+}
+.photo-viewer.open{display:flex}
+.photo-viewer img{max-width:100%;max-height:80vh;border-radius:8px;object-fit:contain}
+.photo-viewer-close{
+  position:absolute;top:calc(20px + env(safe-area-inset-top));right:20px;
+  width:40px;height:40px;border-radius:50%;
+  background:rgba(255,255,255,0.15);border:none;
+  color:#fff;font-size:20px;cursor:pointer;
+}
+.photo-viewer-caption{color:rgba(255,255,255,0.7);font-size:13px;margin-top:12px}
+
+/* 写真アップロード中 */
+.photo-uploading{
+  grid-column:1/-1;padding:12px;text-align:center;
+  font-size:13px;color:#0ea5e9;
+}
+
 .toast{
   position:fixed;bottom:calc(24px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);
   background:#1a2332;color:#fff;padding:12px 20px;border-radius:50px;
@@ -215,6 +262,12 @@ input[type="number"].field-input{text-align:center;font-family:'DM Mono',monospa
     <div class="loading-icon">⏳</div>
     <div class="loading-text">データを読み込み中...</div>
   </div>
+</div>
+
+<div class="photo-viewer" id="photo-viewer" onclick="closeViewer()">
+  <button class="photo-viewer-close" onclick="closeViewer()">✕</button>
+  <img id="viewer-img" src="" alt="">
+  <div class="photo-viewer-caption" id="viewer-caption"></div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -291,7 +344,7 @@ function buildSnapshot() {
 }
 
 function buildCloudSnapshot() {
-  const strip = o => { const r={...o}; delete r.invoice; delete r.awb; delete r.yakuji; delete r.remitDoc; delete r.pdfData; return r; };
+  const strip = o => { const r={...o}; delete r.invoice; delete r.awb; delete r.yakuji; delete r.remitDoc; delete r.pdfData; delete r.photos; return r; };
   return {
     imports: imports.map(i => strip(i)),
     inventory, dispatches, dispatchCounter,
@@ -347,6 +400,21 @@ function renderCard(imp) {
           ${imp.eta ? `<div class="card-eta">📅 ETA: ${imp.eta}</div>` : ''}
         </div>
         <span class="status-badge ${statusClass}">${statusLabel}</span>
+      </div>
+
+      <!-- 写真セクション -->
+      <div class="photo-section">
+        <div class="photo-section-header">
+          <div class="items-title">📷 写真</div>
+          <label class="photo-add-btn">
+            📷 撮影 / 選択
+            <input type="file" accept="image/*" capture="environment" multiple
+              onchange="addPhotos('${imp.id}', event)" style="display:none">
+          </label>
+        </div>
+        <div id="photos-${imp.id}" class="photo-grid">
+          ${(imp.photos||[]).length ? renderPhotoGrid(imp.id, imp.photos) : '<div class="photo-empty">写真を撮影して記録を残せます</div>'}
+        </div>
       </div>
 
       <div class="items-section">
@@ -560,7 +628,13 @@ async function doStock(impId) {
 }
 
 function addToInventory(productName, qty, supplier, shipmentId, expiry) {
-  const key = productName + '||' + supplier;
+  // 既存のinventoryから商品名が一致するキーを優先して使う（キー形式の不一致を防ぐ）
+  const exactKey = productName + '||' + supplier;
+  const existingKey = Object.keys(inventory).find(k =>
+    inventory[k].name === productName
+  );
+  const key = existingKey || exactKey;
+
   if (!inventory[key]) {
     inventory[key] = {
       key, name: productName, supplier,
@@ -622,6 +696,89 @@ function toast(msg) {
   el.textContent = msg;
   el.classList.add('show');
   setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// ===== 写真管理 =====
+function renderPhotoGrid(impId, photos) {
+  if (!photos || !photos.length) return '<div class="photo-empty">写真を撮影して記録を残せます</div>';
+  return photos.map((photo, i) => `
+    <div class="photo-thumb-wrap">
+      <img class="photo-thumb" src="${photo.data}" alt="写真${i+1}"
+        onclick="openViewer('${impId}',${i})">
+      <button class="photo-delete-btn" onclick="deletePhoto('${impId}',${i});event.stopPropagation()">✕</button>
+    </div>`).join('');
+}
+
+async function addPhotos(impId, event) {
+  const files = Array.from(event.target.files);
+  if (!files.length) return;
+  event.target.value = '';
+
+  const imp = imports.find(i => i.id === impId);
+  if (!imp) return;
+  if (!imp.photos) imp.photos = [];
+
+  // ローディング表示
+  const grid = document.getElementById('photos-' + impId);
+  if (grid) grid.innerHTML += '<div class="photo-uploading">⏳ 処理中...</div>';
+
+  for (const file of files) {
+    const compressed = await compressImage(file, 800, 0.75);
+    imp.photos.push({
+      data: compressed,
+      name: file.name,
+      date: new Date().toISOString().slice(0, 10)
+    });
+  }
+
+  // グリッド更新
+  if (grid) grid.innerHTML = renderPhotoGrid(impId, imp.photos);
+  toast(`✓ ${files.length}枚追加しました`);
+  // 自動保存
+  saveData();
+}
+
+function compressImage(file, maxWidth, quality) {
+  return new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let w = img.width, h = img.height;
+        if (w > maxWidth) { h = Math.round(h * maxWidth / w); w = maxWidth; }
+        canvas.width = w; canvas.height = h;
+        canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL('image/jpeg', quality));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function deletePhoto(impId, photoIdx) {
+  const imp = imports.find(i => i.id === impId);
+  if (!imp || !imp.photos) return;
+  if (!confirm('この写真を削除しますか？')) return;
+  imp.photos.splice(photoIdx, 1);
+  const grid = document.getElementById('photos-' + impId);
+  if (grid) grid.innerHTML = renderPhotoGrid(impId, imp.photos);
+  saveData();
+}
+
+function openViewer(impId, photoIdx) {
+  const imp = imports.find(i => i.id === impId);
+  if (!imp || !imp.photos || !imp.photos[photoIdx]) return;
+  const photo = imp.photos[photoIdx];
+  document.getElementById('viewer-img').src = photo.data;
+  document.getElementById('viewer-caption').textContent =
+    `${imp.id} · ${photo.date} (${photoIdx + 1}/${imp.photos.length})`;
+  document.getElementById('photo-viewer').classList.add('open');
+}
+
+function closeViewer() {
+  document.getElementById('photo-viewer').classList.remove('open');
 }
 
 // ===== 起動 =====
