@@ -344,7 +344,13 @@ function buildSnapshot() {
 }
 
 function buildCloudSnapshot() {
-  const strip = o => { const r={...o}; delete r.invoice; delete r.awb; delete r.yakuji; delete r.remitDoc; delete r.pdfData; delete r.photos; return r; };
+  const stripItem = item => { const r={...item}; delete r.photos; return r; };
+  const strip = o => {
+    const r={...o};
+    delete r.invoice; delete r.awb; delete r.yakuji; delete r.remitDoc; delete r.pdfData; delete r.photos;
+    if(r.items) r.items = r.items.map(stripItem);
+    return r;
+  };
   return {
     imports: imports.map(i => strip(i)),
     inventory, dispatches, dispatchCounter,
@@ -402,21 +408,6 @@ function renderCard(imp) {
         <span class="status-badge ${statusClass}">${statusLabel}</span>
       </div>
 
-      <!-- 写真セクション -->
-      <div class="photo-section">
-        <div class="photo-section-header">
-          <div class="items-title">📷 写真</div>
-          <label class="photo-add-btn">
-            📷 撮影 / 選択
-            <input type="file" accept="image/*" capture="environment" multiple
-              onchange="addPhotos('${imp.id}', event)" style="display:none">
-          </label>
-        </div>
-        <div id="photos-${imp.id}" class="photo-grid">
-          ${(imp.photos||[]).length ? renderPhotoGrid(imp.id, imp.photos) : '<div class="photo-empty">写真を撮影して記録を残せます</div>'}
-        </div>
-      </div>
-
       <div class="items-section">
         <div class="items-header">
           <div class="items-title">商品リスト</div>
@@ -460,6 +451,7 @@ function renderItemBlock(impId, item, idx) {
       </div>
     </div>`).join('');
 
+  const itemPhotos = item.photos || [];
   return `
     <div class="item-block" id="item-${impId}-${idx}">
       <div class="item-name-row">
@@ -470,6 +462,28 @@ function renderItemBlock(impId, item, idx) {
       <div id="lots-${impId}-${idx}">${lotsHtml}</div>
       <button class="add-lot-btn" onclick="addLot('${impId}',${idx})">＋ ロットを追加（消費期限が異なる場合）</button>
       <div class="lot-total">合計: <strong>${total}</strong> 個</div>
+
+      <!-- 商品ごとの写真 -->
+      <div style="margin-top:12px">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <div style="font-size:12px;font-weight:700;color:#6b7a8d">📷 写真${itemPhotos.length ? ' ('+itemPhotos.length+'枚)' : ''}</div>
+          <div style="display:flex;gap:6px">
+            <label class="photo-add-btn" style="font-size:12px;padding:5px 10px">
+              📷 カメラ
+              <input type="file" accept="image/*" capture="environment"
+                onchange="addItemPhotos('${impId}',${idx},event)" style="display:none">
+            </label>
+            <label class="photo-add-btn" style="font-size:12px;padding:5px 10px">
+              🖼️ 選択
+              <input type="file" accept="image/*" multiple
+                onchange="addItemPhotos('${impId}',${idx},event)" style="display:none">
+            </label>
+          </div>
+        </div>
+        <div id="item-photos-${impId}-${idx}" class="photo-grid">
+          ${itemPhotos.length ? renderItemPhotoGrid(impId, idx, itemPhotos) : '<div class="photo-empty" style="font-size:12px;padding:10px">消費期限・商品の写真を撮影</div>'}
+        </div>
+      </div>
     </div>`;
 }
 
@@ -699,6 +713,68 @@ function toast(msg) {
 }
 
 // ===== 写真管理 =====
+function renderItemPhotoGrid(impId, itemIdx, photos) {
+  if (!photos || !photos.length) return '<div class="photo-empty" style="font-size:12px;padding:10px">消費期限・商品の写真を撮影</div>';
+  return photos.map((photo, i) => `
+    <div class="photo-thumb-wrap">
+      <img class="photo-thumb" src="${photo.data}" alt="写真${i+1}"
+        onclick="openItemViewer('${impId}',${itemIdx},${i})">
+      <button class="photo-delete-btn" onclick="deleteItemPhoto('${impId}',${itemIdx},${i});event.stopPropagation()">✕</button>
+    </div>`).join('');
+}
+
+async function addItemPhotos(impId, itemIdx, event) {
+  const files = Array.from(event.target.files);
+  if (!files.length) return;
+  event.target.value = '';
+
+  const imp = imports.find(i => i.id === impId);
+  if (!imp || !imp.items || !imp.items[itemIdx]) return;
+  if (!imp.items[itemIdx].photos) imp.items[itemIdx].photos = [];
+
+  const grid = document.getElementById(`item-photos-${impId}-${itemIdx}`);
+  if (grid) grid.innerHTML = '<div class="photo-uploading">⏳ 処理中...</div>';
+
+  for (const file of files) {
+    const compressed = await compressImage(file, 1000, 0.8);
+    imp.items[itemIdx].photos.push({
+      data: compressed,
+      name: file.name,
+      date: new Date().toISOString().slice(0, 10)
+    });
+  }
+
+  const photos = imp.items[itemIdx].photos;
+  // ヘッダーの枚数更新
+  const countEl = document.querySelector(`#item-${impId}-${itemIdx} [id="item-photos-${impId}-${itemIdx}"]`)?.previousElementSibling?.querySelector('div');
+  if (countEl) countEl.textContent = `📷 写真 (${photos.length}枚)`;
+
+  if (grid) grid.innerHTML = renderItemPhotoGrid(impId, itemIdx, photos);
+  toast(`✓ ${files.length}枚追加しました`);
+  saveData();
+}
+
+function deleteItemPhoto(impId, itemIdx, photoIdx) {
+  const imp = imports.find(i => i.id === impId);
+  if (!imp || !imp.items || !imp.items[itemIdx] || !imp.items[itemIdx].photos) return;
+  if (!confirm('この写真を削除しますか？')) return;
+  imp.items[itemIdx].photos.splice(photoIdx, 1);
+  const grid = document.getElementById(`item-photos-${impId}-${itemIdx}`);
+  if (grid) grid.innerHTML = renderItemPhotoGrid(impId, itemIdx, imp.items[itemIdx].photos);
+  saveData();
+}
+
+function openItemViewer(impId, itemIdx, photoIdx) {
+  const imp = imports.find(i => i.id === impId);
+  if (!imp || !imp.items || !imp.items[itemIdx] || !imp.items[itemIdx].photos) return;
+  const photos = imp.items[itemIdx].photos;
+  const photo = photos[photoIdx];
+  document.getElementById('viewer-img').src = photo.data;
+  document.getElementById('viewer-caption').textContent =
+    `${imp.items[itemIdx].name || '商品'} · ${photo.date} (${photoIdx + 1}/${photos.length})`;
+  document.getElementById('photo-viewer').classList.add('open');
+}
+
 function renderPhotoGrid(impId, photos) {
   if (!photos || !photos.length) return '<div class="photo-empty">写真を撮影して記録を残せます</div>';
   return photos.map((photo, i) => `
@@ -713,28 +789,17 @@ async function addPhotos(impId, event) {
   const files = Array.from(event.target.files);
   if (!files.length) return;
   event.target.value = '';
-
   const imp = imports.find(i => i.id === impId);
   if (!imp) return;
   if (!imp.photos) imp.photos = [];
-
-  // ローディング表示
   const grid = document.getElementById('photos-' + impId);
   if (grid) grid.innerHTML += '<div class="photo-uploading">⏳ 処理中...</div>';
-
   for (const file of files) {
     const compressed = await compressImage(file, 800, 0.75);
-    imp.photos.push({
-      data: compressed,
-      name: file.name,
-      date: new Date().toISOString().slice(0, 10)
-    });
+    imp.photos.push({ data: compressed, name: file.name, date: new Date().toISOString().slice(0, 10) });
   }
-
-  // グリッド更新
   if (grid) grid.innerHTML = renderPhotoGrid(impId, imp.photos);
   toast(`✓ ${files.length}枚追加しました`);
-  // 自動保存
   saveData();
 }
 
