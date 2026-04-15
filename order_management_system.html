@@ -2907,6 +2907,60 @@ function reapplyStockedImports(){
   alert(`✓ ${toApply.length}件の輸入データを反映しました（商品${count}件）`);
 }
 
+function unstockImport(id){
+  const imp = imports.find(i=>i.id===id);
+  if(!imp) return;
+
+  const itemNames = (imp.items||[]).map(i=>i.name).filter(Boolean);
+  const msg = `⚠️ ${imp.id} の在庫化を取り消しますか？\n\n`
+    + (itemNames.length ? `対象商品：\n${itemNames.map(n=>'• '+n).join('\n')}\n\n` : '')
+    + `・在庫数から該当分を差し引きます\n・入出庫履歴から入庫記録を削除します\n・ステータスを「出荷済み」に戻します`;
+
+  if(!confirm(msg)) return;
+
+  // 1. 入出庫履歴から該当の入庫記録を削除
+  const before = dispatches.length;
+  dispatches = dispatches.filter(d => !(d.type==='in' && d.notes && d.notes.includes(`輸入ID: ${id}`)));
+  const removed = before - dispatches.length;
+
+  // 2. 在庫数を減らす
+  if(imp.items && imp.items.length){
+    imp.items.forEach(item=>{
+      const itemLots = item.lots&&item.lots.length
+        ? item.lots
+        : [{qty:item.shippedQty||item.qty||1, expiry:item.expiry||''}];
+
+      // inventoryのキーを探す（商品名が一致するもの）
+      const invKey = Object.keys(inventory).find(k=>inventory[k].name===item.name);
+      if(invKey){
+        const totalQty = itemLots.reduce((s,l)=>s+(parseInt(l.qty)||0),0);
+        inventory[invKey].onHand = Math.max(0, inventory[invKey].onHand - totalQty);
+        inventory[invKey].totalReceived = Math.max(0, inventory[invKey].totalReceived - totalQty);
+        // ロットから該当分を削除
+        if(inventory[invKey].lots){
+          itemLots.forEach(lot=>{
+            if(!lot.expiry) return;
+            const li = inventory[invKey].lots.findIndex(l=>l.expiry===lot.expiry);
+            if(li>=0){
+              inventory[invKey].lots[li].qty -= parseInt(lot.qty)||0;
+              if(inventory[invKey].lots[li].qty<=0) inventory[invKey].lots.splice(li,1);
+            }
+          });
+        }
+      }
+    });
+  }
+
+  // 3. ステータスを出荷済みに戻す
+  imp.status = 'shipped';
+  imp.arrived = '';
+
+  renderImport();
+  renderInventory();
+  saveToStorage();
+  alert(`✓ ${id} の在庫化を取り消しました\n（入庫履歴 ${removed}件削除、在庫数を修正しました）`);
+}
+
 function markStocked(id){
   const imp=imports.find(x=>x.id===id);if(!imp)return;
   if(!imp.arrived)imp.arrived=new Date().toISOString().split('T')[0];
@@ -2989,7 +3043,9 @@ function renderImport(){
     <td><div style="display:flex;gap:5px;flex-wrap:wrap">
       <button class="btn sm" onclick="openImportModal('${i.id}')">編集</button>
       <button class="btn sm danger" onclick="deleteImport('${i.id}')">削除</button>
-      ${i.status!=='stocked'?`<button class="btn sm primary" onclick="markStocked('${i.id}')">→ 在庫化</button>`:''}
+      ${i.status!=='stocked'
+        ?`<button class="btn sm primary" onclick="markStocked('${i.id}')">→ 在庫化</button>`
+        :`<button class="btn sm" style="border-color:#dc2626;color:#dc2626" onclick="unstockImport('${i.id}')">↩ 取り消し</button>`}
     </div></td>
   </tr>`).join('');
   if(icards)icards.innerHTML=imports.map(i=>`
@@ -3011,7 +3067,9 @@ function renderImport(){
       </div>
       <div class="m-card-actions">
         <button class="btn" onclick="openImportModal('${i.id}')">編集</button>
-        ${i.status!=='stocked'?`<button class="btn primary" onclick="markStocked('${i.id}')">→ 在庫化</button>`:'<span style="font-size:12px;color:var(--orange);padding:8px">✓ 在庫済</span>'}
+        ${i.status!=='stocked'
+          ?`<button class="btn primary" onclick="markStocked('${i.id}')">→ 在庫化</button>`
+          :`<button class="btn" style="border-color:#dc2626;color:#dc2626" onclick="unstockImport('${i.id}')">↩ 在庫化を取り消す</button>`}
       </div>
       ${(i.awb||i.yakuji)?`<div style="display:flex;gap:8px;flex-wrap:wrap;padding:10px 0 2px;border-top:1px solid var(--border-light);margin-top:4px">
         ${i.awb?`<span class="doc-btn" onclick="viewDocById('${i.id}','awb')">📄 AWB</span>`:''}
