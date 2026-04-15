@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>在庫化 | 発注管理システム</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:'DM Sans',sans-serif;background:#f4f6f9;color:#1a2332;font-size:16px;line-height:1.5;min-height:100vh}
+input,select,button,textarea{font-family:inherit;font-size:16px}/* iOS zoom防止 */
+
+/* ヘッダー */
+.header{
+  background:#1a2332;
+  padding:16px 20px;
+  padding-top:calc(16px + env(safe-area-inset-top));
+  position:sticky;top:0;z-index:100;
+  box-shadow:0 2px 12px rgba(0,0,0,0.2);
+}
+.header-inner{display:flex;align-items:center;justify-content:space-between}
+.header-title{font-size:18px;font-weight:700;color:#fff}
+.header-sub{font-size:12px;color:rgba(255,255,255,0.55);margin-top:2px}
+.reload-btn{
+  padding:8px 14px;background:rgba(255,255,255,0.12);
+  border:1px solid rgba(255,255,255,0.25);border-radius:50px;
+  color:#fff;font-size:13px;font-weight:600;cursor:pointer;
+}
+
+/* コンテンツ */
+.content{padding:16px;padding-bottom:calc(16px + env(safe-area-inset-bottom))}
+
+/* ローディング */
+.loading{text-align:center;padding:60px 20px}
+.loading-icon{font-size:40px;margin-bottom:12px;animation:spin 1.5s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+.loading-text{font-size:15px;color:#6b7a8d}
+
+/* 空の状態 */
+.empty-state{
+  text-align:center;padding:48px 20px;
+  background:#fff;border-radius:20px;
+  box-shadow:0 1px 4px rgba(0,0,0,0.06);
+}
+.empty-icon{font-size:48px;margin-bottom:14px}
+.empty-title{font-size:18px;font-weight:700;color:#1a2332;margin-bottom:6px}
+.empty-sub{font-size:14px;color:#6b7a8d}
+
+/* 輸入カード */
+.import-card{
+  background:#fff;border-radius:20px;
+  box-shadow:0 2px 8px rgba(0,0,0,0.08);
+  margin-bottom:20px;overflow:hidden;
+}
+.card-header{
+  padding:16px 18px;border-bottom:1px solid #f0f2f5;
+  display:flex;justify-content:space-between;align-items:flex-start;gap:10px;
+}
+.card-supplier{font-size:18px;font-weight:700;color:#1a2332}
+.card-meta{font-size:13px;color:#6b7a8d;margin-top:3px}
+.card-eta{font-size:13px;color:#f97316;margin-top:2px;font-weight:600}
+.status-badge{
+  padding:5px 12px;border-radius:50px;
+  font-size:12px;font-weight:700;white-space:nowrap;flex-shrink:0;
+}
+.status-shipped{background:#fff7ed;color:#f97316}
+.status-customs{background:#fefce8;color:#ca8a04}
+.status-arrived{background:#eff6ff;color:#3b82f6}
+
+/* 商品セクション */
+.items-section{padding:14px 18px}
+.items-header{
+  display:flex;justify-content:space-between;align-items:center;
+  margin-bottom:12px;
+}
+.items-title{font-size:14px;font-weight:700;color:#6b7a8d;text-transform:uppercase;letter-spacing:0.05em}
+.add-item-btn{
+  padding:7px 16px;border-radius:50px;
+  border:2px solid #f97316;background:none;
+  color:#f97316;font-size:13px;font-weight:700;cursor:pointer;
+}
+
+/* 商品アイテム */
+.item-block{
+  background:#f8f9fc;border-radius:14px;
+  padding:14px;margin-bottom:10px;
+  border:1.5px solid #e4e8ee;
+}
+.item-name-row{
+  display:flex;align-items:center;gap:8px;margin-bottom:12px;
+}
+.item-name-input{
+  flex:1;padding:10px 12px;
+  border:1.5px solid #e4e8ee;border-radius:10px;
+  font-size:15px;font-weight:600;color:#1a2332;
+  background:#fff;outline:none;
+  transition:border-color 0.15s;
+}
+.item-name-input:focus{border-color:#f97316}
+.remove-item-btn{
+  width:36px;height:36px;border-radius:50%;
+  border:1.5px solid #fecaca;background:#fff;
+  color:#dc2626;font-size:16px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+}
+
+/* ロット */
+.lot-block{
+  background:#fff;border-radius:10px;
+  padding:12px;margin-bottom:8px;
+  border:1px solid #e4e8ee;
+}
+.lot-grid{
+  display:grid;grid-template-columns:1fr 1fr auto;
+  gap:8px;align-items:end;
+}
+.field-label{
+  font-size:11px;font-weight:700;color:#6b7a8d;
+  text-transform:uppercase;letter-spacing:0.04em;margin-bottom:5px;
+}
+.field-input{
+  width:100%;padding:10px 12px;
+  border:1.5px solid #e4e8ee;border-radius:10px;
+  font-size:15px;color:#1a2332;background:#fff;outline:none;
+  transition:border-color 0.15s;
+}
+.field-input:focus{border-color:#f97316}
+input[type="number"].field-input{text-align:center;font-family:'DM Mono',monospace;font-weight:700}
+.remove-lot-btn{
+  width:36px;height:36px;border-radius:8px;
+  border:1px solid #fecaca;background:#fff;
+  color:#dc2626;font-size:14px;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;flex-shrink:0;
+  margin-bottom:0;
+}
+.remove-lot-btn:disabled{border-color:#e4e8ee;color:#ccc;cursor:default}
+
+.add-lot-btn{
+  width:100%;padding:9px;margin-top:4px;
+  border:2px dashed #f97316;border-radius:10px;
+  background:none;color:#f97316;
+  font-size:13px;font-weight:700;cursor:pointer;
+}
+
+.lot-total{
+  text-align:right;margin-top:8px;
+  font-size:13px;color:#6b7a8d;
+}
+.lot-total strong{color:#f97316;font-family:'DM Mono',monospace}
+
+/* 在庫化ボタン */
+.action-area{padding:14px 18px;border-top:1px solid #f0f2f5}
+.stock-btn{
+  width:100%;padding:16px;
+  background:#f97316;border:none;border-radius:14px;
+  color:#fff;font-size:16px;font-weight:700;cursor:pointer;
+  box-shadow:0 4px 14px rgba(249,115,22,0.35);
+  transition:all 0.15s;
+}
+.stock-btn:active{transform:scale(0.98);box-shadow:none}
+
+/* 確認パネル */
+.confirm-panel{
+  background:#fff8ed;border:1.5px solid #fed7aa;
+  border-radius:14px;padding:16px;margin-bottom:10px;
+  display:none;
+}
+.confirm-title{font-size:15px;font-weight:700;color:#c2410c;text-align:center;margin-bottom:14px}
+.confirm-btns{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.cancel-btn{
+  padding:13px;background:#fff;border:1.5px solid #e4e8ee;
+  border-radius:12px;color:#1a2332;font-size:14px;font-weight:700;cursor:pointer;
+}
+.ok-btn{
+  padding:13px;background:#f97316;border:none;
+  border-radius:12px;color:#fff;font-size:14px;font-weight:700;cursor:pointer;
+}
+
+/* トースト */
+.toast{
+  position:fixed;bottom:calc(24px + env(safe-area-inset-bottom));left:50%;transform:translateX(-50%);
+  background:#1a2332;color:#fff;padding:12px 20px;border-radius:50px;
+  font-size:14px;font-weight:600;z-index:200;
+  opacity:0;transition:opacity 0.3s;white-space:nowrap;
+  box-shadow:0 4px 20px rgba(0,0,0,0.2);
+}
+.toast.show{opacity:1}
+
+/* 同期インジケーター */
+.sync-bar{
+  text-align:center;padding:8px;font-size:12px;
+  background:#f0f9ff;color:#0369a1;
+  border-bottom:1px solid #bae6fd;
+}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-inner">
+    <div>
+      <div class="header-title">📦 在庫化</div>
+      <div class="header-sub">消費期限・数量を確認</div>
+    </div>
+    <button class="reload-btn" onclick="loadData()">🔄 更新</button>
+  </div>
+</div>
+
+<div id="sync-bar" class="sync-bar" style="display:none"></div>
+
+<div class="content" id="content">
+  <div class="loading">
+    <div class="loading-icon">⏳</div>
+    <div class="loading-text">データを読み込み中...</div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const GAS_URL = 'https://script.google.com/macros/s/AKfycbwBX8HcgDNM8nc2CrhpjA-_fbYLzhPy-_6R8Oa0fUtTuWRYsKud8JDlSsF3edKSjzhQ/exec';
+const LS_KEY = 'poms_data_v1';
+
+let imports = [];
+let inventory = {};
+let dispatches = [];
+let suppliers = [];
+let dispatchCounter = 0;
+let _lots = {}; // {impId-itemIdx: [{qty,expiry}]}
+
+// ===== データ読み込み =====
+async function loadData() {
+  showSync('☁️ データを読み込み中...');
+  try {
+    const res = await fetch(GAS_URL);
+    const json = await res.json();
+    if (json.status === 'ok' && json.data && json.data !== '{}') {
+      const d = JSON.parse(json.data);
+      applyData(d);
+      // LocalStorageにも保存
+      try { localStorage.setItem(LS_KEY, JSON.stringify(d)); } catch(e){}
+      showSync('✓ 同期済み', 2000);
+    } else {
+      loadLocal();
+    }
+  } catch(e) {
+    loadLocal();
+    showSync('📴 オフライン（ローカルデータ使用）', 3000);
+  }
+  render();
+}
+
+function loadLocal() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (raw) applyData(JSON.parse(raw));
+  } catch(e) {}
+}
+
+function applyData(d) {
+  if (d.imports) imports = d.imports;
+  if (d.inventory) inventory = d.inventory;
+  if (d.dispatches) dispatches = d.dispatches;
+  if (d.suppliers && d.suppliers.length) suppliers = d.suppliers;
+  if (d.dispatchCounter) dispatchCounter = d.dispatchCounter;
+}
+
+// ===== 保存 =====
+async function saveData() {
+  // ローカル即時保存
+  const snap = buildSnapshot();
+  try { localStorage.setItem(LS_KEY, JSON.stringify(snap)); } catch(e){}
+  showSync('⏳ 保存中...');
+  try {
+    const res = await fetch(GAS_URL, {
+      method: 'POST',
+      body: JSON.stringify({ action: 'save', data: buildCloudSnapshot() })
+    });
+    const json = await res.json();
+    if (json.status === 'ok') showSync('☁️ 保存しました', 2000);
+    else showSync('⚠️ クラウド保存失敗（ローカル保存済）', 3000);
+  } catch(e) {
+    showSync('📴 オフライン（ローカル保存済）', 3000);
+  }
+}
+
+function buildSnapshot() {
+  return { imports, inventory, dispatches, suppliers, dispatchCounter, _savedAt: Date.now() };
+}
+
+function buildCloudSnapshot() {
+  const strip = o => { const r={...o}; delete r.invoice; delete r.awb; delete r.yakuji; delete r.remitDoc; delete r.pdfData; return r; };
+  return {
+    imports: imports.map(i => strip(i)),
+    inventory, dispatches, dispatchCounter,
+    _savedAt: Date.now()
+  };
+}
+
+// ===== 描画 =====
+function render() {
+  const targets = imports.filter(i => ['shipped','in_customs','arrived'].includes(i.status));
+  const content = document.getElementById('content');
+
+  if (!targets.length) {
+    content.innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">✅</div>
+        <div class="empty-title">在庫化待ちはありません</div>
+        <div class="empty-sub">出荷済み・通関中・入荷済みの荷物が<br>ここに表示されます</div>
+      </div>`;
+    return;
+  }
+
+  content.innerHTML = targets.map(imp => renderCard(imp)).join('');
+}
+
+function renderCard(imp) {
+  const statusLabel = {shipped:'出荷済み', in_customs:'通関中', arrived:'入荷済み'}[imp.status] || imp.status;
+  const statusClass = {shipped:'status-shipped', in_customs:'status-customs', arrived:'status-arrived'}[imp.status] || '';
+  const items = imp.items || [];
+
+  // ロット初期化
+  items.forEach((item, idx) => {
+    const key = imp.id + '-' + idx;
+    if (!_lots[key]) {
+      _lots[key] = [{ qty: item.shippedQty || item.qty || 1, expiry: item.expiry || '' }];
+    }
+  });
+
+  const itemsHtml = items.length
+    ? items.map((item, idx) => renderItemBlock(imp.id, item, idx)).join('')
+    + `<button class="add-item-btn" onclick="addItem('${imp.id}')">＋ 商品を追加</button>`
+    : `<div style="padding:12px;background:#f8f9fc;border-radius:12px;margin-bottom:10px;color:#6b7a8d;font-size:14px;text-align:center">
+        商品が登録されていません
+       </div>
+       <button class="add-item-btn" style="width:100%;margin-bottom:8px" onclick="addItem('${imp.id}')">＋ 商品を追加</button>`;
+
+  return `
+    <div class="import-card" id="card-${imp.id}">
+      <div class="card-header">
+        <div>
+          <div class="card-supplier">${imp.supplierName || '—'}</div>
+          <div class="card-meta">${imp.id}${imp.carrier ? ' · ' + imp.carrier : ''}${imp.tracking ? ' ' + imp.tracking : ''}</div>
+          ${imp.eta ? `<div class="card-eta">📅 ETA: ${imp.eta}</div>` : ''}
+        </div>
+        <span class="status-badge ${statusClass}">${statusLabel}</span>
+      </div>
+
+      <div class="items-section">
+        <div class="items-header">
+          <div class="items-title">商品リスト</div>
+        </div>
+        <div id="items-${imp.id}">${itemsHtml}</div>
+      </div>
+
+      <div class="action-area">
+        <div class="confirm-panel" id="confirm-${imp.id}">
+          <div class="confirm-title">⚠️ 本当に在庫化しますか？</div>
+          <div class="confirm-btns">
+            <button class="cancel-btn" onclick="hideConfirm('${imp.id}')">キャンセル</button>
+            <button class="ok-btn" onclick="doStock('${imp.id}')">✓ 確定する</button>
+          </div>
+        </div>
+        <button class="stock-btn" id="stockbtn-${imp.id}" onclick="showConfirm('${imp.id}')">✓ 在庫化する</button>
+      </div>
+    </div>`;
+}
+
+function renderItemBlock(impId, item, idx) {
+  const key = impId + '-' + idx;
+  const lots = _lots[key] || [{qty:1, expiry:''}];
+  const total = lots.reduce((s, l) => s + (parseInt(l.qty) || 0), 0);
+
+  const lotsHtml = lots.map((lot, li) => `
+    <div class="lot-block">
+      <div class="lot-grid">
+        <div>
+          <div class="field-label">数量</div>
+          <input type="number" value="${lot.qty}" min="1" class="field-input"
+            oninput="updateLot('${impId}',${idx},${li},'qty',this.value)">
+        </div>
+        <div>
+          <div class="field-label">消費期限</div>
+          <input type="date" value="${lot.expiry}" class="field-input"
+            onchange="updateLot('${impId}',${idx},${li},'expiry',this.value)">
+        </div>
+        <button class="remove-lot-btn" onclick="removeLot('${impId}',${idx},${li})"
+          ${lots.length <= 1 ? 'disabled' : ''}>✕</button>
+      </div>
+    </div>`).join('');
+
+  return `
+    <div class="item-block" id="item-${impId}-${idx}">
+      <div class="item-name-row">
+        <input class="item-name-input" value="${item.name || ''}" placeholder="商品名を入力"
+          oninput="updateItemName('${impId}',${idx},this.value)">
+        <button class="remove-item-btn" onclick="removeItem('${impId}',${idx})">✕</button>
+      </div>
+      <div id="lots-${impId}-${idx}">${lotsHtml}</div>
+      <button class="add-lot-btn" onclick="addLot('${impId}',${idx})">＋ ロットを追加（消費期限が異なる場合）</button>
+      <div class="lot-total">合計: <strong>${total}</strong> 個</div>
+    </div>`;
+}
+
+// ===== アイテム操作 =====
+function updateItemName(impId, idx, val) {
+  const imp = imports.find(i => i.id === impId);
+  if (imp && imp.items && imp.items[idx]) imp.items[idx].name = val;
+}
+
+function removeItem(impId, idx) {
+  const imp = imports.find(i => i.id === impId);
+  if (!imp || !imp.items) return;
+  if (imp.items.length <= 1) { toast('最低1つの商品が必要です'); return; }
+  imp.items.splice(idx, 1);
+  delete _lots[impId + '-' + idx];
+  reRenderCard(impId);
+}
+
+function addItem(impId) {
+  const imp = imports.find(i => i.id === impId);
+  if (!imp) return;
+  if (!imp.items) imp.items = [];
+  imp.items.push({ name: '', qty: 1, shippedQty: 1, expiry: '' });
+  reRenderCard(impId);
+  // フォーカス
+  setTimeout(() => {
+    const inputs = document.querySelectorAll(`#items-${impId} .item-name-input`);
+    if (inputs.length) inputs[inputs.length - 1].focus();
+  }, 100);
+}
+
+// ===== ロット操作 =====
+function updateLot(impId, itemIdx, lotIdx, field, val) {
+  const key = impId + '-' + itemIdx;
+  if (!_lots[key]) return;
+  _lots[key][lotIdx][field] = field === 'qty' ? (parseInt(val) || 1) : val;
+  // 合計表示を更新
+  const total = _lots[key].reduce((s, l) => s + (parseInt(l.qty) || 0), 0);
+  const totalEl = document.querySelector(`#item-${impId}-${itemIdx} .lot-total strong`);
+  if (totalEl) totalEl.textContent = total;
+}
+
+function addLot(impId, itemIdx) {
+  const key = impId + '-' + itemIdx;
+  if (!_lots[key]) _lots[key] = [];
+  _lots[key].push({ qty: 1, expiry: '' });
+  reRenderLots(impId, itemIdx);
+}
+
+function removeLot(impId, itemIdx, lotIdx) {
+  const key = impId + '-' + itemIdx;
+  if (!_lots[key] || _lots[key].length <= 1) return;
+  _lots[key].splice(lotIdx, 1);
+  reRenderLots(impId, itemIdx);
+}
+
+function reRenderLots(impId, itemIdx) {
+  const key = impId + '-' + itemIdx;
+  const lots = _lots[key] || [];
+  const total = lots.reduce((s, l) => s + (parseInt(l.qty) || 0), 0);
+
+  const container = document.getElementById(`lots-${impId}-${itemIdx}`);
+  if (!container) return;
+
+  container.innerHTML = lots.map((lot, li) => `
+    <div class="lot-block">
+      <div class="lot-grid">
+        <div>
+          <div class="field-label">数量</div>
+          <input type="number" value="${lot.qty}" min="1" class="field-input"
+            oninput="updateLot('${impId}',${itemIdx},${li},'qty',this.value)">
+        </div>
+        <div>
+          <div class="field-label">消費期限</div>
+          <input type="date" value="${lot.expiry}" class="field-input"
+            onchange="updateLot('${impId}',${itemIdx},${li},'expiry',this.value)">
+        </div>
+        <button class="remove-lot-btn" onclick="removeLot('${impId}',${itemIdx},${li})"
+          ${lots.length <= 1 ? 'disabled' : ''}>✕</button>
+      </div>
+    </div>`).join('');
+
+  const totalEl = document.querySelector(`#item-${impId}-${itemIdx} .lot-total strong`);
+  if (totalEl) totalEl.textContent = total;
+}
+
+function reRenderCard(impId) {
+  const imp = imports.find(i => i.id === impId);
+  const card = document.getElementById('card-' + impId);
+  if (!imp || !card) return;
+  const newCard = document.createElement('div');
+  newCard.innerHTML = renderCard(imp);
+  card.replaceWith(newCard.firstElementChild);
+}
+
+// ===== 確認・在庫化 =====
+function showConfirm(impId) {
+  document.getElementById('confirm-' + impId).style.display = 'block';
+  document.getElementById('stockbtn-' + impId).style.display = 'none';
+}
+
+function hideConfirm(impId) {
+  document.getElementById('confirm-' + impId).style.display = 'none';
+  document.getElementById('stockbtn-' + impId).style.display = 'block';
+}
+
+async function doStock(impId) {
+  const imp = imports.find(i => i.id === impId);
+  if (!imp) return;
+
+  if (!imp.items || !imp.items.length) {
+    toast('商品を追加してください');
+    hideConfirm(impId);
+    return;
+  }
+
+  // 消費期限チェック
+  let missingExpiry = 0;
+  imp.items.forEach((item, idx) => {
+    const lots = _lots[impId + '-' + idx] || [];
+    lots.forEach(l => { if (!l.expiry) missingExpiry++; });
+  });
+
+  if (missingExpiry > 0) {
+    if (!confirm(`${missingExpiry}件の消費期限が未入力です。このまま在庫化しますか？`)) {
+      hideConfirm(impId);
+      return;
+    }
+  }
+
+  // 在庫化処理
+  imp.status = 'stocked';
+  imp.arrived = new Date().toISOString().slice(0, 10);
+
+  imp.items.forEach((item, idx) => {
+    const lots = _lots[impId + '-' + idx] || [{ qty: item.shippedQty || item.qty || 1, expiry: item.expiry || '' }];
+    lots.forEach(lot => {
+      addToInventory(item.name, parseInt(lot.qty) || 1, imp.supplierName || '', impId, lot.expiry || null);
+    });
+  });
+
+  // ロットデータクリア
+  Object.keys(_lots).filter(k => k.startsWith(impId + '-')).forEach(k => delete _lots[k]);
+
+  await saveData();
+  toast(`✓ ${imp.supplierName || impId} を在庫化しました`);
+
+  // カードを非表示
+  const card = document.getElementById('card-' + impId);
+  if (card) {
+    card.style.transition = 'opacity 0.3s, transform 0.3s';
+    card.style.opacity = '0';
+    card.style.transform = 'scale(0.95)';
+    setTimeout(() => { card.remove(); checkEmpty(); }, 300);
+  }
+}
+
+function addToInventory(productName, qty, supplier, shipmentId, expiry) {
+  const key = productName + '||' + supplier;
+  if (!inventory[key]) {
+    inventory[key] = {
+      key, name: productName, supplier,
+      cat: '—', onHand: 0, onOrder: 0, inTransit: 0,
+      totalReceived: 0, totalDispatched: 0, lowAlert: 5,
+      receipts: [], lots: []
+    };
+  }
+  if (!inventory[key].receipts) inventory[key].receipts = [];
+  if (!inventory[key].lots) inventory[key].lots = [];
+
+  inventory[key].onHand += qty;
+  inventory[key].totalReceived += qty;
+  inventory[key].inTransit = Math.max(0, inventory[key].inTransit - qty);
+  inventory[key].receipts.push({ date: new Date().toLocaleDateString('ja-JP'), qty, shipmentId });
+
+  if (expiry) {
+    const existing = inventory[key].lots.find(l => l.expiry === expiry);
+    if (existing) existing.qty += qty;
+    else inventory[key].lots.push({ expiry, qty, addedDate: imp_date() });
+    inventory[key].lots.sort((a, b) => a.expiry.localeCompare(b.expiry));
+  }
+
+  dispatchCounter = (dispatchCounter || 0) + 1;
+  dispatches.unshift({
+    id: 'DC-' + dispatchCounter,
+    date: new Date().toISOString().slice(0, 10),
+    product: productName, qty, type: 'in',
+    destination: '', clinic: '',
+    notes: `輸入ID: ${shipmentId}${expiry ? ' / 消費期限: ' + expiry : ''}`,
+    _savedAt: Date.now()
+  });
+}
+
+function imp_date() { return new Date().toISOString().slice(0, 10); }
+
+function checkEmpty() {
+  const remaining = imports.filter(i => ['shipped','in_customs','arrived'].includes(i.status));
+  if (!remaining.length) {
+    document.getElementById('content').innerHTML = `
+      <div class="empty-state">
+        <div class="empty-icon">✅</div>
+        <div class="empty-title">すべて完了しました！</div>
+        <div class="empty-sub">在庫化待ちの荷物はありません</div>
+      </div>`;
+  }
+}
+
+// ===== UI ユーティリティ =====
+function showSync(msg, hideAfter) {
+  const bar = document.getElementById('sync-bar');
+  bar.textContent = msg;
+  bar.style.display = 'block';
+  if (hideAfter) setTimeout(() => { bar.style.display = 'none'; }, hideAfter);
+}
+
+function toast(msg) {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.classList.add('show');
+  setTimeout(() => el.classList.remove('show'), 2500);
+}
+
+// ===== 起動 =====
+loadData();
+</script>
+</body>
+</html>
