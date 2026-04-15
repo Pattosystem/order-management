@@ -3089,7 +3089,10 @@ let dispatches=[];
 let dispatchCounter=4001;
 
 function addToInventory(productName,qty,supplier,shipmentId,poId,expiry){
-  const key=productName+'||'+supplier;
+  // 既存のinventoryから商品名が一致するキーを優先（キー形式の不一致を防ぐ）
+  const exactKey=productName+'||'+supplier;
+  const existingKey=Object.keys(inventory).find(k=>inventory[k].name===productName);
+  const key=existingKey||exactKey;
   if(!inventory[key]){
     inventory[key]={key,name:productName,supplier,cat:getCatForProduct(productName),
       onHand:0,onOrder:0,inTransit:0,totalReceived:0,totalDispatched:0,lowAlert:5,receipts:[],lots:[]};
