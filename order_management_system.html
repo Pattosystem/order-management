@@ -568,10 +568,24 @@ tbody tr:hover td{background:#fafbfc !important}
       <button class="btn" onclick="printTab('import')">🖨️ PDF印刷</button>
       <button class="btn" onclick="exportTabExcel('import')" style="border-color:var(--navy);color:var(--navy)">📊 Excel出力</button>
       <button class="btn" onclick="reapplyStockedImports()" style="border-color:#7c3aed;color:#7c3aed">🔄 在庫済みを再反映</button>
+      <button class="btn" onclick="openInvoiceModal()" style="border-color:#0ea5e9;color:#0ea5e9">📄 INVOICE登録</button>
 
       <button class="btn primary" onclick="openImportModal()">＋ 輸入登録</button>
     </div>
   </div>
+  <!-- INVOICE一覧 -->
+  <div id="invoice-section" style="margin-bottom:24px">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+      <h3 style="font-size:16px;font-weight:700;color:var(--text)">📄 INVOICE一覧</h3>
+      <span id="invoice-count" style="font-size:12px;color:var(--text-sub)"></span>
+    </div>
+    <div id="invoice-list-container">
+      <div style="text-align:center;padding:20px;color:var(--text-sub);font-size:13px;background:var(--surface);border-radius:var(--r-lg);border:1px solid var(--border)">
+        INVOICEが登録されていません
+      </div>
+    </div>
+  </div>
+
   <div class="import-pipeline" id="import-pipeline"></div>
   <div style="margin-top:24px">
     <div style="display:flex;align-items:center;gap:16px;margin-bottom:14px">
@@ -770,6 +784,92 @@ tbody tr:hover td{background:#fafbfc !important}
   <div id="cdm-content"></div>
   <div class="mactions">
     <button class="btn primary" onclick="closeModal('clinic-detail-modal')">閉じる</button>
+  </div>
+</div>
+</div>
+
+<!-- INVOICE登録モーダル -->
+<div class="modal-bg" id="invoice-modal">
+<div class="modal" style="max-width:680px;max-height:92vh;overflow-y:auto">
+  <h3 id="invoice-modal-title">📄 INVOICE登録</h3>
+  <input type="hidden" id="edit-invoice-id">
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div class="frow">
+      <label>INVOICE番号</label>
+      <input id="inv-no" placeholder="例: INV-2026-001">
+    </div>
+    <div class="frow">
+      <label>発行日</label>
+      <input type="date" id="inv-date">
+    </div>
+    <div class="frow">
+      <label>仕入れ先</label>
+      <select id="inv-supplier">
+        <option value="">— 選択 —</option>
+      </select>
+    </div>
+    <div class="frow">
+      <label>紐づく発注書（PO）</label>
+      <select id="inv-po">
+        <option value="">— 選択（任意）—</option>
+      </select>
+    </div>
+    <div class="frow">
+      <label>金額</label>
+      <input type="number" id="inv-amount" placeholder="0.00" step="0.01">
+    </div>
+    <div class="frow">
+      <label>通貨</label>
+      <select id="inv-currency">
+        <option value="USD">USD - 米ドル</option>
+        <option value="EUR">EUR - ユーロ</option>
+        <option value="GBP">GBP - ポンド</option>
+        <option value="KRW">KRW - 韓国ウォン</option>
+        <option value="JPY">JPY - 日本円</option>
+      </select>
+    </div>
+  </div>
+  <div class="frow">
+    <label>備考</label>
+    <input id="inv-notes" placeholder="任意">
+  </div>
+
+  <!-- 商品リスト -->
+  <div style="margin-top:16px">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+      <div style="font-size:13px;font-weight:700;color:var(--text)">商品リスト</div>
+      <button onclick="addInvoiceItem()" class="btn sm primary">＋ 商品追加</button>
+    </div>
+    <div style="background:#f8f9fc;border-radius:var(--r);overflow:hidden">
+      <div style="display:grid;grid-template-columns:3fr 1fr 1fr auto;gap:0;padding:8px 12px;background:var(--navy)">
+        <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:0.05em">商品名</div>
+        <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:0.05em;text-align:center">数量</div>
+        <div style="font-size:11px;font-weight:700;color:rgba(255,255,255,0.7);text-transform:uppercase;letter-spacing:0.05em;text-align:right">単価</div>
+        <div></div>
+      </div>
+      <div id="invoice-items-list"></div>
+    </div>
+    <div style="text-align:right;margin-top:8px;font-size:14px;font-weight:700;color:var(--text)">
+      合計: <span id="inv-total-display" style="color:var(--orange);font-family:'DM Mono',monospace">—</span>
+    </div>
+  </div>
+
+  <!-- 紐づくAWB -->
+  <div style="margin-top:16px">
+    <div style="font-size:13px;font-weight:700;color:var(--text);margin-bottom:10px">紐づくAWB（輸入管理）</div>
+    <div id="inv-awb-list" style="display:flex;flex-wrap:wrap;gap:8px;min-height:40px;padding:10px;background:#f8f9fc;border-radius:var(--r);border:1.5px solid var(--border)">
+      <div style="font-size:13px;color:var(--text-sub)">AWBを選択してください</div>
+    </div>
+    <div style="margin-top:8px">
+      <select id="inv-awb-select" onchange="addInvoiceAwb(this.value)" style="width:100%;padding:8px 10px;border:1.5px solid var(--border);border-radius:var(--r);font-size:13px;font-family:inherit;outline:none;background:var(--surface);color:var(--text)">
+        <option value="">＋ AWBを追加...</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="mactions">
+    <button class="btn" onclick="closeModal('invoice-modal')">キャンセル</button>
+    <button class="btn primary" onclick="saveInvoice()">保存</button>
   </div>
 </div>
 </div>
@@ -2809,6 +2909,7 @@ function markStocked(id){
 }
 
 function renderImport(){
+  renderInvoiceList();
   const statuses=['ordered','shipped','in_customs','arrived','stocked'];
   const dotClasses={ordered:'dot-ordered',shipped:'dot-shipped',in_customs:'dot-customs',arrived:'dot-arrived',stocked:'dot-stocked'};
   const colTitles={ordered:'発注済',shipped:'出荷済',in_customs:'通関中',arrived:'入荷済',stocked:'在庫済'};
@@ -4012,7 +4113,221 @@ function openInvoiceForOrder(orderId) {
   document.getElementById('invoice-modal').classList.add('open');
 }
 
-/* ===== モバイル在庫化 ===== */
+/* ===== INVOICE管理 ===== */
+let _invoiceItems = [];
+let _invoiceAwbs = [];
+
+function openInvoiceModal(id){
+  _invoiceItems = [];
+  _invoiceAwbs = [];
+  document.getElementById('edit-invoice-id').value = id||'';
+  document.getElementById('invoice-modal-title').textContent = id ? '📄 INVOICE編集' : '📄 INVOICE登録';
+
+  // 仕入れ先
+  const suppSel = document.getElementById('inv-supplier');
+  suppSel.innerHTML = '<option value="">— 選択 —</option>' +
+    suppliers.map(s=>`<option value="${s.id}">${s.name}</option>`).join('');
+
+  // 発注書
+  const poSel = document.getElementById('inv-po');
+  poSel.innerHTML = '<option value="">— 選択（任意）—</option>' +
+    orders.map(o=>`<option value="${o.id}">${o.id} - ${o.supplierName} (${o.date})</option>`).join('');
+
+  if(id){
+    const inv = invoices.find(i=>i.id===id);
+    if(inv){
+      document.getElementById('inv-no').value = inv.invoiceNo||'';
+      document.getElementById('inv-date').value = inv.date||'';
+      document.getElementById('inv-amount').value = inv.amount||'';
+      document.getElementById('inv-currency').value = inv.currency||'USD';
+      document.getElementById('inv-notes').value = inv.notes||'';
+      suppSel.value = inv.supplierId||'';
+      poSel.value = inv.poId||'';
+      _invoiceItems = JSON.parse(JSON.stringify(inv.items||[]));
+      _invoiceAwbs = [...(inv.awbIds||[])];
+    }
+  } else {
+    document.getElementById('inv-no').value = '';
+    document.getElementById('inv-date').value = new Date().toISOString().slice(0,10);
+    document.getElementById('inv-amount').value = '';
+    document.getElementById('inv-currency').value = 'USD';
+    document.getElementById('inv-notes').value = '';
+    _invoiceItems = [{name:'',qty:1,unitPrice:0}];
+  }
+
+  renderInvoiceItems();
+  renderInvoiceAwbList();
+  updateInvoiceAwbSelect();
+  document.getElementById('invoice-modal').classList.add('open');
+}
+
+function renderInvoiceItems(){
+  const container = document.getElementById('invoice-items-list');
+  if(!container) return;
+  if(!_invoiceItems.length){
+    container.innerHTML = '<div style="padding:12px;text-align:center;color:var(--text-sub);font-size:13px">商品を追加してください</div>';
+    document.getElementById('inv-total-display').textContent = '—';
+    return;
+  }
+  const currency = document.getElementById('inv-currency')?.value||'USD';
+  const sym = {'USD':'$','EUR':'€','GBP':'£','KRW':'₩','JPY':'¥'}[currency]||'';
+  let total = 0;
+  container.innerHTML = _invoiceItems.map((item,i)=>{
+    const sub = (item.qty||0)*(item.unitPrice||0);
+    total += sub;
+    return `<div style="display:grid;grid-template-columns:3fr 1fr 1fr auto;gap:6px;padding:8px 12px;border-bottom:1px solid var(--border);align-items:center">
+      <input value="${item.name}" placeholder="商品名"
+        oninput="_invoiceItems[${i}].name=this.value"
+        style="padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--r);font-size:13px;font-family:inherit;outline:none;background:var(--surface);color:var(--text)">
+      <input type="number" value="${item.qty}" min="1"
+        oninput="_invoiceItems[${i}].qty=parseInt(this.value)||1;renderInvoiceItems()"
+        style="padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--r);font-size:13px;font-family:inherit;outline:none;text-align:center;background:var(--surface);color:var(--text)">
+      <input type="number" value="${item.unitPrice}" min="0" step="0.01"
+        oninput="_invoiceItems[${i}].unitPrice=parseFloat(this.value)||0;renderInvoiceItems()"
+        style="padding:6px 8px;border:1.5px solid var(--border);border-radius:var(--r);font-size:13px;font-family:inherit;outline:none;text-align:right;background:var(--surface);color:var(--text)">
+      <button onclick="_invoiceItems.splice(${i},1);renderInvoiceItems()"
+        style="padding:4px 8px;background:none;border:1px solid #fecaca;border-radius:var(--r);color:var(--red);cursor:pointer;font-size:12px">✕</button>
+    </div>`;
+  }).join('');
+  document.getElementById('inv-total-display').textContent =
+    sym+(currency==='KRW'||currency==='JPY' ? Math.round(total).toLocaleString() : total.toFixed(2))+' '+currency;
+}
+
+function addInvoiceItem(){
+  _invoiceItems.push({name:'',qty:1,unitPrice:0});
+  renderInvoiceItems();
+}
+
+function renderInvoiceAwbList(){
+  const container = document.getElementById('inv-awb-list');
+  if(!container) return;
+  if(!_invoiceAwbs.length){
+    container.innerHTML = '<div style="font-size:13px;color:var(--text-sub)">AWBを選択してください</div>';
+    return;
+  }
+  container.innerHTML = _invoiceAwbs.map(awbId=>{
+    const imp = imports.find(i=>i.id===awbId);
+    return `<span style="display:inline-flex;align-items:center;gap:6px;background:var(--orange-light);border:1.5px solid #fed7aa;border-radius:var(--r-pill);padding:4px 10px;font-size:12px;font-weight:600;color:var(--orange)">
+      ${awbId} ${imp?'('+imp.supplierName+' '+imp.tracking+')':''}
+      <button onclick="_invoiceAwbs=_invoiceAwbs.filter(x=>x!=='${awbId}');renderInvoiceAwbList()"
+        style="background:none;border:none;cursor:pointer;color:var(--orange);font-size:13px;padding:0;line-height:1">✕</button>
+    </span>`;
+  }).join('');
+}
+
+function updateInvoiceAwbSelect(){
+  const sel = document.getElementById('inv-awb-select');
+  if(!sel) return;
+  const available = imports.filter(i=>!_invoiceAwbs.includes(i.id));
+  sel.innerHTML = '<option value="">＋ AWBを追加...</option>' +
+    available.map(i=>`<option value="${i.id}">${i.id} - ${i.supplierName} ${i.tracking||''} (${i.status==='shipped'?'出荷済':i.status==='in_customs'?'通関中':i.status==='arrived'?'入荷済':i.status==='stocked'?'在庫済':'発注済'})</option>`).join('');
+}
+
+function addInvoiceAwb(val){
+  if(!val) return;
+  if(!_invoiceAwbs.includes(val)) _invoiceAwbs.push(val);
+  document.getElementById('inv-awb-select').value='';
+  renderInvoiceAwbList();
+  updateInvoiceAwbSelect();
+}
+
+function saveInvoice(){
+  const id = document.getElementById('edit-invoice-id').value;
+  const invoiceNo = document.getElementById('inv-no').value.trim();
+  const date = document.getElementById('inv-date').value;
+  const supplierId = document.getElementById('inv-supplier').value;
+  const poId = document.getElementById('inv-po').value;
+  const amount = parseFloat(document.getElementById('inv-amount').value)||0;
+  const currency = document.getElementById('inv-currency').value;
+  const notes = document.getElementById('inv-notes').value.trim();
+  const suppName = suppliers.find(s=>s.id===supplierId)?.name||'';
+
+  if(!invoiceNo){ alert('INVOICE番号を入力してください'); return; }
+  if(!date){ alert('発行日を入力してください'); return; }
+  if(!supplierId){ alert('仕入れ先を選択してください'); return; }
+
+  const items = _invoiceItems.filter(i=>i.name.trim());
+
+  if(id){
+    const existing = invoices.find(i=>i.id===id);
+    if(existing){
+      Object.assign(existing,{invoiceNo,date,supplierId,supplierName:suppName,poId,amount,currency,items,awbIds:_invoiceAwbs,notes,_updatedAt:Date.now()});
+    }
+  } else {
+    invoiceCounter++;
+    invoices.unshift({
+      id:'INV-'+invoiceCounter,
+      invoiceNo, date, supplierId, supplierName:suppName,
+      poId, amount, currency, items,
+      awbIds: _invoiceAwbs,
+      notes, _createdAt:Date.now()
+    });
+  }
+
+  closeModal('invoice-modal');
+  renderInvoiceList();
+  saveToStorage();
+  alert(id ? '✓ INVOICEを更新しました' : '✓ INVOICEを登録しました');
+}
+
+function deleteInvoice(id){
+  if(!confirm(`INVOICE ${id} を削除しますか？`)) return;
+  invoices = invoices.filter(i=>i.id!==id);
+  renderInvoiceList();
+  saveToStorage();
+}
+
+function renderInvoiceList(){
+  const container = document.getElementById('invoice-list-container');
+  const countEl = document.getElementById('invoice-count');
+  if(!container) return;
+  if(countEl) countEl.textContent = invoices.length ? `${invoices.length}件` : '';
+
+  if(!invoices.length){
+    container.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-sub);font-size:13px;background:var(--surface);border-radius:var(--r-lg);border:1px solid var(--border)">INVOICEが登録されていません</div>';
+    return;
+  }
+
+  container.innerHTML = invoices.map(inv=>{
+    const sym = {'USD':'$','EUR':'€','GBP':'£','KRW':'₩','JPY':'¥'}[inv.currency]||'';
+    const amountStr = inv.amount ? sym+(inv.currency==='KRW'||inv.currency==='JPY'?Math.round(inv.amount).toLocaleString():inv.amount.toFixed(2))+' '+inv.currency : '—';
+    const awbs = inv.awbIds||[];
+
+    return `<div style="background:var(--surface);border:1px solid var(--border);border-radius:var(--r-lg);margin-bottom:10px;overflow:hidden">
+      <div style="display:grid;grid-template-columns:auto 1fr auto auto auto;gap:12px;align-items:center;padding:12px 16px;border-bottom:1px solid var(--border)">
+        <div style="font-size:13px;font-weight:700;color:var(--orange);font-family:'DM Mono',monospace">${inv.id}</div>
+        <div>
+          <div style="font-size:14px;font-weight:700;color:var(--text)">${inv.invoiceNo}</div>
+          <div style="font-size:12px;color:var(--text-sub);margin-top:2px">${inv.supplierName} · ${inv.date}${inv.poId?' · PO: '+inv.poId:''}</div>
+        </div>
+        <div style="font-size:15px;font-weight:700;color:var(--text);font-family:'DM Mono',monospace;white-space:nowrap">${amountStr}</div>
+        <button onclick="openInvoiceModal('${inv.id}')" class="btn sm">編集</button>
+        <button onclick="deleteInvoice('${inv.id}')" class="btn sm danger">削除</button>
+      </div>
+      <div style="padding:10px 16px;display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap">
+        <div style="flex:1;min-width:200px">
+          <div style="font-size:11px;font-weight:700;color:var(--text-sub);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">商品 (${(inv.items||[]).length}種)</div>
+          ${(inv.items||[]).slice(0,3).map(item=>`
+            <div style="font-size:12px;color:var(--text);margin-bottom:3px">
+              ${item.name} <span style="color:var(--text-sub)">× ${item.qty}</span>
+              ${item.unitPrice?`<span style="color:var(--text-sub)"> @ ${sym}${item.unitPrice}</span>`:''}
+            </div>`).join('')}
+          ${(inv.items||[]).length>3?`<div style="font-size:11px;color:var(--text-sub)">他 ${inv.items.length-3}件...</div>`:''}
+        </div>
+        <div style="min-width:160px">
+          <div style="font-size:11px;font-weight:700;color:var(--text-sub);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:6px">紐づくAWB (${awbs.length}件)</div>
+          ${awbs.length ? awbs.map(awbId=>{
+            const imp=imports.find(i=>i.id===awbId);
+            return `<div style="font-size:12px;font-family:'DM Mono',monospace;color:var(--orange);margin-bottom:3px">${awbId} ${imp?'('+imp.tracking+')':''}</div>`;
+          }).join('') : '<div style="font-size:12px;color:var(--text-sub)">未割当</div>'}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/* ===== end INVOICE ===== */
+
 function isMobile(){ return window.innerWidth <= 768; }
 
 function initMobileMode(){
@@ -4723,6 +5038,7 @@ function saveToStorage() {
     return r;
   };
   const cloudData = {
+    invoices,
     orders: orders.map(o => stripPdf(o)),
     remittances: remittances.map(r => stripPdf(r)),
     imports: imports.map(i => stripPdf(i)),
@@ -4807,6 +5123,8 @@ function applyData(d) {
   if (d.dispatchCounter) dispatchCounter = d.dispatchCounter;
   if (d.idCounter) idCounter = d.idCounter;
   if (d.senderInfo) senderInfo = {...senderInfo, ...d.senderInfo};
+  if (d.invoices) invoices = d.invoices;
+  if (d.invoiceCounter) invoiceCounter = d.invoiceCounter;
   if (d.pendingList && d.pendingList.length) pendingList = d.pendingList;
   if (d.pendingMonths && d.pendingMonths.length) pendingMonths = d.pendingMonths;
   // カスタム仕入れ先を復元（クラウドデータの場合）
@@ -4827,6 +5145,7 @@ function renderAll() {
   renderInventory();
   renderRemitList();
   renderMaster();
+  renderInvoiceList();
   if(pendingMonths && pendingMonths.length){
     const labelShorts = pendingMonths.map(ym => {
       const [y, m] = ym.split('-');
@@ -4855,7 +5174,9 @@ function resetAllData() {
 /* 仕入れ先マスタを初期値に戻す */
 /* ===== 消費期限アラートタブ ===== */
 let expiryFilter = 'all';
-let pendingMonths = []; // CSV読み込み時の対象月リスト
+let pendingMonths = [];
+let invoices = []; // {id, invoiceNo, date, supplierId, supplierName, amount, currency, items:[{name,qty,unitPrice}], awbIds:[], poId, notes}
+let invoiceCounter = 1000; // CSV読み込み時の対象月リスト
 
 function setExpiryFilter(f){
   expiryFilter = f;
