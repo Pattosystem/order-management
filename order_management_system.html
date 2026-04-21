@@ -638,6 +638,12 @@ tbody tr:hover td{background:#fafbfc !important}
 
   <!-- 出庫履歴 -->
   <div id="sh-section-out" style="display:none">
+    <div style="display:flex;justify-content:flex-end;margin-bottom:12px">
+      <label class="btn" style="cursor:pointer;background:var(--navy);color:#fff;border-color:var(--navy)">
+        📥 BcartCSV取込
+        <input type="file" accept=".csv" onchange="loadBcartCSV(event)" style="display:none">
+      </label>
+    </div>
     <div class="desktop-table table-wrap">
       <table>
         <thead><tr>
@@ -996,6 +1002,35 @@ tbody tr:hover td{background:#fafbfc !important}
   <div class="mactions">
     <button class="btn" onclick="closeModal('confirm-modal')">キャンセル</button>
     <button class="btn primary" onclick="submitOrder()">発注確定</button>
+  </div>
+</div>
+</div>
+
+<!-- Bcart CSV インポートモーダル -->
+<div class="modal-bg" id="bcart-import-modal">
+<div class="modal" style="max-width:760px;max-height:85vh;overflow-y:auto">
+  <h3>📥 Bcart CSV 取込</h3>
+  <p style="font-size:13px;color:#666;margin-bottom:16px">「発送済」のデータを取込み、自動で出庫登録・在庫更新を行います。</p>
+  <div id="bcart-preview-wrap">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+      <span style="font-size:13px;font-weight:600" id="bcart-preview-count"></span>
+      <span style="font-size:12px;color:#888">⚠️ 未一致商品は手動で選択してください</span>
+    </div>
+    <div class="table-wrap desktop-table">
+    <table style="font-size:13px">
+      <thead><tr>
+        <th style="width:30px"><input type="checkbox" id="bcart-check-all" onchange="bcartToggleAll(this.checked)" checked></th>
+        <th>発送日</th><th>クリニック</th><th>Bcart商品名</th>
+        <th>在庫マッチ</th><th style="width:60px">数量</th><th>注文番号</th>
+      </tr></thead>
+      <tbody id="bcart-preview-tbody"></tbody>
+    </table>
+    </div>
+  </div>
+  <div style="background:#fff8ed;border:1px solid #ffd97d;border-radius:6px;padding:10px 14px;margin:14px 0;font-size:13px;display:none" id="bcart-warning"></div>
+  <div class="mactions">
+    <button class="btn" onclick="closeModal('bcart-import-modal')">キャンセル</button>
+    <button class="btn primary" onclick="executeBcartImport()" id="bcart-exec-btn">✅ 選択した行を出庫登録</button>
   </div>
 </div>
 </div>
@@ -3359,6 +3394,248 @@ function renderStockInbound(){
 
   // 出庫履歴もセット
   renderStockOutbound();
+}
+
+/* ===== Bcart CSV インポート ===== */
+let bcartRows = [];
+
+function loadBcartCSV(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  event.target.value = ''; // 同じファイルを再選択可能にする
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    // Shift-JIS デコード
+    const decoder = new TextDecoder('shift-jis');
+    const text = decoder.decode(e.target.result);
+    parseBcartCSV(text);
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function parseBcartCSV(text) {
+  // CSV パース（改行・クォート対応）
+  const rows = [];
+  let cur = '', inQ = false, row = [];
+  for (let i = 0; i < text.length; i++) {
+    const c = text[i];
+    if (c === '"') {
+      if (inQ && text[i+1] === '"') { cur += '"'; i++; }
+      else inQ = !inQ;
+    } else if (c === ',' && !inQ) {
+      row.push(cur); cur = '';
+    } else if ((c === '\r' || c === '\n') && !inQ) {
+      if (c === '\r' && text[i+1] === '\n') i++;
+      row.push(cur); cur = '';
+      if (row.some(x => x)) rows.push(row);
+      row = [];
+    } else {
+      cur += c;
+    }
+  }
+  if (row.length) { row.push(cur); rows.push(row); }
+
+  // ヘッダー行スキップ、発送済のみ抽出
+  const data = rows.slice(1).filter(r => r[9] === '発送済' && r[6]);
+
+  if (!data.length) {
+    alert('発送済のデータが見つかりませんでした。');
+    return;
+  }
+
+  // 重複チェック（既に取込済みの注文番号）
+  const existingNotes = new Set(dispatches.map(d => d.notes || ''));
+
+  bcartRows = data.map((r, idx) => {
+    const orderNo = '#' + r[43];
+    const alreadyImported = existingNotes.has(orderNo);
+    const matchedKey = matchBcartProductName(r[23]);
+    return {
+      idx,
+      date: r[6],
+      clinic: r[11] || r[13] || '',
+      bcartName: r[23],
+      qty: parseInt(r[39]) || 0,
+      orderNo,
+      matchedKey,
+      alreadyImported,
+      selected: !alreadyImported && matchedKey !== null
+    };
+  });
+
+  renderBcartPreview();
+  document.getElementById('bcart-import-modal').classList.add('open');
+}
+
+function matchBcartProductName(name) {
+  if (!name) return null;
+  const n = name.toLowerCase().replace(/\s+/g, '');
+  // 在庫キーとの照合
+  const invKeys = Object.keys(inventory);
+  // 完全一致優先
+  for (const k of invKeys) {
+    if (inventory[k].name.toLowerCase().replace(/\s+/g, '') === n) return k;
+  }
+  // 部分一致（キーワードマッピング）
+  const rules = [
+    [['jalupro', 'スーパーハイドロ', 'super hydro'], 'Super Hydro'],
+    [['jalupro', 'classic'], 'Jalupro Classic'],
+    [['tesslift', 'soft'], 'TESSLIFT'],
+    [['fatx core', 'デオキシコール', 'deoxycholic'], 'FatX Core'],
+    [['fat x silueta', 'silueta'], 'Fat X Silueta'],
+    [['rejuran skin booster', 'リジュランスキン'], 'Rejuran Skin Booster'],
+    [['rejuran', 'リジュランアイ', 'eye'], 'リジュラン アイ'],
+    [['rejuranhealer', 'リジュランヒーラー', 'healer'], 'リジュランヒーラー'],
+    [['rejuranhb', 'リジュランhb'], 'リジュランHB'],
+    [['juvelook volume', 'レニスナ', 'juvelook vol'], 'Juvelook Volume'],
+    [['juvelook', 'ジュベルック'], 'Juvelook'],
+    [['lizne', 'リズネ'], 'LIZNE'],
+    [['mccoom', 'マックーム'], 'McCoom'],
+    [['neauvia hydro', 'ニューラミス'], 'Neauvia'],
+    [['glutathione', 'グルタチオン'], 'グルタチオン'],
+    [['coretox', 'コアトックス'], 'コアトックス'],
+    [['bm hyrunidase', 'hyrunidase'], 'BM Hyrunidase'],
+  ];
+  const nLow = name.toLowerCase();
+  for (const [keywords, hint] of rules) {
+    if (keywords.some(kw => nLow.includes(kw.toLowerCase()))) {
+      // hintで在庫を検索
+      const hintLow = hint.toLowerCase();
+      const found = invKeys.find(k => inventory[k].name.toLowerCase().includes(hintLow));
+      if (found) return found;
+    }
+  }
+  // フォールバック：部分一致
+  for (const k of invKeys) {
+    const invName = inventory[k].name.toLowerCase();
+    // 最初の数単語で照合
+    const words = n.split('').slice(0, 8).join('');
+    if (invName.replace(/\s+/g,'').includes(words)) return k;
+  }
+  return null;
+}
+
+function renderBcartPreview() {
+  const tbody = document.getElementById('bcart-preview-tbody');
+  const invKeys = Object.keys(inventory);
+  const optionsHTML = invKeys.map(k =>
+    `<option value="${k}">${inventory[k].name} (在庫:${inventory[k].onHand})</option>`
+  ).join('');
+
+  tbody.innerHTML = bcartRows.map((row, i) => {
+    const alreadyClass = row.alreadyImported ? 'style="background:#f0f0f0;color:#aaa"' : '';
+    const matchStyle = row.matchedKey ? 'color:#15803d;font-weight:600' : 'color:#dc2626;font-weight:600';
+    const matchLabel = row.matchedKey ? `✅ ${inventory[row.matchedKey].name}` : '❌ 未一致';
+    return `<tr ${alreadyClass}>
+      <td><input type="checkbox" class="bcart-row-cb" data-i="${i}" ${row.selected ? 'checked' : ''} ${row.alreadyImported ? 'disabled title="取込済"' : ''}></td>
+      <td style="white-space:nowrap">${row.date}</td>
+      <td style="font-size:12px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${row.clinic}">${row.clinic}</td>
+      <td style="font-size:11px;max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${row.bcartName}">${row.bcartName}</td>
+      <td>
+        ${row.alreadyImported
+          ? '<span style="color:#aaa;font-size:12px">⏭ 取込済</span>'
+          : `<span class="${row.matchedKey ? '' : 'bcart-unmatch'}" style="${matchStyle};font-size:11px;display:block;margin-bottom:2px">${matchLabel}</span>
+             <select class="bcart-select" data-i="${i}" onchange="bcartUpdateMatch(this)" style="font-size:11px;width:100%;max-width:200px">
+               <option value="">-- 手動選択 --</option>${optionsHTML}
+             </select>`
+        }
+      </td>
+      <td style="text-align:center">${row.qty}</td>
+      <td style="font-size:11px">${row.orderNo}</td>
+    </tr>`;
+  }).join('');
+
+  // 件数表示
+  const total = bcartRows.filter(r => !r.alreadyImported).length;
+  const matched = bcartRows.filter(r => !r.alreadyImported && r.matchedKey).length;
+  const already = bcartRows.filter(r => r.alreadyImported).length;
+  document.getElementById('bcart-preview-count').textContent =
+    `${bcartRows.length}行検出 / 発送済${total}件（一致:${matched}件、未一致:${total-matched}件）` +
+    (already ? ` / 取込済スキップ:${already}件` : '');
+
+  const warn = document.getElementById('bcart-warning');
+  if (total - matched > 0) {
+    warn.style.display = 'block';
+    warn.textContent = `⚠️ ${total - matched}件の商品が在庫と一致しませんでした。プルダウンで手動選択するか、チェックを外してスキップしてください。`;
+  } else {
+    warn.style.display = 'none';
+  }
+}
+
+function bcartUpdateMatch(sel) {
+  const i = parseInt(sel.dataset.i);
+  bcartRows[i].matchedKey = sel.value || null;
+  // ラベル更新
+  const span = sel.previousElementSibling;
+  if (span) {
+    if (bcartRows[i].matchedKey) {
+      span.style.color = '#15803d';
+      span.textContent = '✅ ' + inventory[bcartRows[i].matchedKey].name;
+    } else {
+      span.style.color = '#dc2626';
+      span.textContent = '❌ 未一致';
+    }
+  }
+}
+
+function bcartToggleAll(checked) {
+  bcartRows.forEach((r, i) => {
+    if (!r.alreadyImported) r.selected = checked;
+  });
+  document.querySelectorAll('.bcart-row-cb:not([disabled])').forEach(cb => cb.checked = checked);
+}
+
+function executeBcartImport() {
+  // チェック状態を反映
+  document.querySelectorAll('.bcart-row-cb').forEach(cb => {
+    const i = parseInt(cb.dataset.i);
+    bcartRows[i].selected = cb.checked;
+  });
+
+  const toImport = bcartRows.filter(r => r.selected && !r.alreadyImported);
+  if (!toImport.length) { alert('取込する行がありません。'); return; }
+
+  const noMatch = toImport.filter(r => !r.matchedKey);
+  if (noMatch.length) {
+    if (!confirm(`${noMatch.length}件が在庫未一致のままです。\nこれらをスキップして残りを取込しますか？`)) return;
+  }
+
+  let imported = 0, skipped = 0, errors = [];
+  const validRows = toImport.filter(r => r.matchedKey);
+
+  for (const row of validRows) {
+    const inv = inventory[row.matchedKey];
+    if (!inv) { errors.push(row.bcartName); continue; }
+    if (row.qty > inv.onHand) {
+      errors.push(`${inv.name}: 在庫不足（在庫${inv.onHand}、要求${row.qty}）`);
+      continue;
+    }
+    inv.onHand -= row.qty;
+    inv.totalDispatched += row.qty;
+    dispatches.unshift({
+      id: 'DSP-' + dispatchCounter++,
+      date: row.date,
+      productKey: row.matchedKey,
+      product: inv.name,
+      supplier: inv.supplier,
+      qty: row.qty,
+      clinic: row.clinic,
+      notes: row.orderNo,
+      type: undefined
+    });
+    imported++;
+  }
+  skipped = noMatch.length;
+
+  saveToStorage();
+  renderInventory();
+  renderStockOutbound();
+  closeModal('bcart-import-modal');
+
+  let msg = `✅ ${imported}件を出庫登録しました。`;
+  if (skipped) msg += `\n⏭ ${skipped}件は未一致のためスキップ。`;
+  if (errors.length) msg += `\n⚠️ エラー:\n` + errors.join('\n');
+  alert(msg);
 }
 
 function renderStockOutbound(){
