@@ -3377,7 +3377,7 @@ function renderStockOutbound(){
   tbody.innerHTML = outRecords.map(d=>`<tr>
     <td style="font-size:13px;color:var(--text-hint)">${d.date}</td>
     <td style="font-size:14px;font-weight:600">${d.product}</td>
-    <td style="font-size:13px;color:var(--orange)">${d.destination||'—'}</td>
+    <td style="font-size:13px;color:var(--orange)">${d.clinic||'—'}</td>
     <td style="font-family:'DM Mono',monospace;font-weight:700;font-size:16px;color:#dc2626">−${Math.abs(d.qty)}</td>
     <td style="font-size:13px;color:var(--text-hint)">${d.notes||'—'}</td>
     <td style="text-align:center;white-space:nowrap">
@@ -3391,7 +3391,7 @@ function renderStockOutbound(){
       <div class="m-card-header">
         <div>
           <div class="m-card-title">${d.product}</div>
-          <div class="m-card-sub">${d.date} · ${d.destination||''}</div>
+          <div class="m-card-sub">${d.date} · ${d.clinic||''}</div>
         </div>
         <div style="font-size:22px;font-weight:700;color:var(--danger)">−${Math.abs(d.qty)}</div>
       </div>
