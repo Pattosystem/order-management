@@ -3443,12 +3443,18 @@ function parseBcartCSV(text) {
     return;
   }
 
-  // 重複チェック（既に取込済みの注文番号）
-  const existingNotes = new Set(dispatches.map(d => d.notes || ''));
+  // 重複チェック（受注番号 or Bcart発送ID が既存備考に含まれているか）
+  const existingNotes = dispatches.map(d => d.notes || '');
 
   bcartRows = data.map((r, idx) => {
     const orderNo = '#' + r[43];
-    const alreadyImported = existingNotes.has(orderNo);
+    const bcartId = r[0]; // Bcart発送ID
+    const alreadyImported = existingNotes.some(n =>
+      n === orderNo ||
+      n.includes(bcartId) ||
+      n.includes('出荷#' + bcartId) ||
+      n === '#' + bcartId
+    );
     const matchedKey = matchBcartProductName(r[23]);
     return {
       idx,
