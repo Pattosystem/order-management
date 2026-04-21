@@ -3274,7 +3274,7 @@ function saveDispatch(){
     inv.onHand-=qty;inv.totalDispatched+=qty;
     dispatches.unshift({id:'DSP-'+dispatchCounter++,date,productKey:key,product:inv.name,supplier:inv.supplier,qty,clinic,notes,type:undefined});
   }
-  closeModal('dispatch-modal');renderInventory();saveToStorage();
+  closeModal('dispatch-modal');renderInventory();renderStockOutbound();saveToStorage();
 }
 
 function deleteDispatch(id){
@@ -3976,48 +3976,6 @@ function renderInventory(){
     }).join('');
   }
 
-  const dtbody=document.getElementById('sh-dispatch-tbody')||document.getElementById('dispatch-tbody');
-  const dpcards=document.getElementById('sh-dispatch-cards')||document.getElementById('dispatch-cards');
-  if(!dtbody) return;
-  if(!dispatches.length){
-    dtbody.innerHTML='<tr><td colspan="5" class="empty">出庫記録がありません</td></tr>';
-    if(dpcards)dpcards.innerHTML='<div class="m-empty">出庫記録がありません</div>';
-    return;
-  }
-  dtbody.innerHTML=dispatches.map(d=>{
-    const isIn=d.type==='in';
-    return`<tr style="${isIn?'background:#f0fdf4;':''}">
-      <td style="font-size:12px">${d.date}</td>
-      <td style="font-size:12px;font-weight:500">${d.product}</td>
-      <td style="font-weight:500;color:${isIn?'#15803d':'var(--orange)'}">
-        ${isIn?'📥 直接入庫':d.clinic}</td>
-      <td style="font-family:'DM Mono',monospace;font-weight:600;color:${isIn?'#15803d':'inherit'}">
-        ${isIn?'+'+Math.abs(d.qty):d.qty}</td>
-      <td style="font-size:12px;color:#1a1a1a">${d.notes||'—'}</td>
-      <td style="white-space:nowrap">
-        ${!isIn?`<button class="btn sm" onclick="openDispatchModal('${d.id}')">編集</button>`:''}
-        <button class="btn sm danger" onclick="deleteDispatch('${d.id}')" style="margin-left:${isIn?'0':'4'}px">削除</button>
-      </td>
-    </tr>`;
-  }).join('');
-  if(dpcards)dpcards.innerHTML=dispatches.map(d=>{
-    const isIn=d.type==='in';
-    const editBtns='<div class="m-card-actions">'+((!isIn)?'<button class="btn" onclick="openDispatchModal(\''+d.id+'\')">編集</button>':'')+'<button class="btn danger" onclick="deleteDispatch(\''+d.id+'\')">削除</button></div>';
-    return`<div class="m-card" style="${isIn?'background:#f0fdf4;border-color:#86efac;':''}">
-      <div class="m-card-header">
-        <div>
-          <div class="m-card-title" style="font-size:12px">${d.product}</div>
-          <div class="m-card-sub">${d.date}</div>
-        </div>
-        <div class="m-card-value mono" style="font-size:20px;font-weight:300;color:${isIn?'#15803d':'var(--orange)'}">${isIn?'+'+Math.abs(d.qty):d.qty}</div>
-      </div>
-      <div class="m-card-rows">
-        <div class="m-card-row"><div class="m-card-label">届け先</div><div class="m-card-value accent">${isIn?'📥 直接入庫':d.clinic}</div></div>
-        <div class="m-card-row"><div class="m-card-label">備考</div><div class="m-card-value">${d.notes||'—'}</div></div>
-      </div>
-      `+editBtns+`
-    </div>`;
-  }).join('');
 }
 
 /* ===== PDF 書類管理 ===== */
